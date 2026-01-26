@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fatima Electronics Icon Generator</title>
+</head>
+<body>
+    <canvas id="canvas" width="512" height="512" style="border: 1px solid #ccc;"></canvas>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Create FE icon with green theme
+        function createFEIcon() {
+            // Clear canvas
+            ctx.clearRect(0, 0, 512, 512);
+            
+            // Create gradient background (green theme)
+            const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+            gradient.addColorStop(0, '#16a34a'); // Fatima green
+            gradient.addColorStop(1, '#15803d'); // Darker green
+            
+            // Draw rounded rectangle background
+            ctx.fillStyle = gradient;
+            roundRect(ctx, 0, 0, 512, 512, 50);
+            ctx.fill();
+            
+            // Draw border
+            ctx.strokeStyle = '#166534';
+            ctx.lineWidth = 8;
+            roundRect(ctx, 4, 4, 504, 504, 46);
+            ctx.stroke();
+            
+            // Draw "FE" text
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 240px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Add shadow for depth
+            ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetX = 4;
+            ctx.shadowOffsetY = 4;
+            
+            ctx.fillText('FE', 256, 256);
+            
+            // Reset shadow
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            
+            // Add small subtitle
+            ctx.font = 'bold 32px Arial';
+            ctx.fillStyle = '#dcfce7'; // Light green
+            ctx.fillText('ELECTRONICS', 256, 380);
+        }
+        
+        // Helper function for rounded rectangles
+        function roundRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+        
+        // Generate icon
+        createFEIcon();
+        
+        // Function to download icon as PNG
+        function downloadIcon(size, filename) {
+            // Create temporary canvas for resizing
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = size;
+            tempCanvas.height = size;
+            
+            // Draw resized version
+            tempCtx.drawImage(canvas, 0, 0, size, size);
+            
+            // Download
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = tempCanvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        // Add download buttons
+        const container = document.createElement('div');
+        container.style.marginTop = '20px';
+        
+        const sizes = [
+            {size: 16, name: 'icon-16.png'},
+            {size: 32, name: 'icon-32.png'},
+            {size: 48, name: 'icon-48.png'},
+            {size: 64, name: 'icon-64.png'},
+            {size: 128, name: 'icon-128.png'},
+            {size: 256, name: 'icon-256.png'},
+            {size: 512, name: 'icon-512.png'}
+        ];
+        
+        sizes.forEach(({size, name}) => {
+            const button = document.createElement('button');
+            button.textContent = `Download ${size}x${size}`;
+            button.style.margin = '5px';
+            button.style.padding = '10px';
+            button.style.backgroundColor = '#16a34a';
+            button.style.color = 'white';
+            button.style.border = 'none';
+            button.style.borderRadius = '5px';
+            button.style.cursor = 'pointer';
+            button.onclick = () => downloadIcon(size, name);
+            container.appendChild(button);
+        });
+        
+        document.body.appendChild(container);
+        
+        // Instructions
+        const instructions = document.createElement('div');
+        instructions.innerHTML = `
+            <h2 style="color: #16a34a;">Fatima Electronics Icon Generator</h2>
+            <p>Click the buttons above to download different sizes of the FE icon.</p>
+            <p><strong>For Electron App:</strong></p>
+            <ul>
+                <li>Download icon-512.png and rename to icon.png for Linux</li>
+                <li>Convert icon.png to icon.ico for Windows using online converter</li>
+                <li>Convert icon.png to icon.icns for macOS using online converter</li>
+            </ul>
+        `;
+        document.body.appendChild(instructions);
+        
+    </script>
+</body>
+</html>

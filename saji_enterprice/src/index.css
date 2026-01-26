@@ -1,0 +1,153 @@
+/* Import form fixes */
+@import './styles/form-fixes.css';
+/* Import modern components */
+@import './styles/modern-components.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global styles for fullscreen app */
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer base {
+  :root {
+    /* Logo-inspired color palette - Light mode */
+    --background: 0 0% 98%; /* Clean white background */
+    --foreground: 142 76% 36%; /* Green text */
+    --card: 0 0% 100%;
+    --card-foreground: 142 76% 36%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 142 76% 36%;
+    --primary: 142 76% 36%; /* Green from logo */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 25 15% 55%; /* Warm brown */
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 25 15% 55%; /* Warm brown accent */
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 90%;
+    --input: 0 0% 100%;
+    --ring: 240 100% 9%;
+    /* Logo-inspired chart colors */
+    --chart-1: 142 76% 36%; /* Green */
+    --chart-2: 25 50% 65%; /* Brown */
+    --chart-3: 25 100% 50%; /* Orange */
+    --chart-4: 35 25% 85%; /* Cream */
+    --chart-5: 240 50% 25%; /* Light navy */
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Dark mode with logo colors */
+    --background: 142 30% 8%; /* Dark green background */
+    --foreground: 0 0% 95%; /* Light text */
+    --card: 142 30% 10%;
+    --card-foreground: 0 0% 95%;
+    --popover: 142 30% 10%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 0 0% 95%; /* Light for primary in dark mode */
+    --primary-foreground: 142 76% 36%;
+    --secondary: 25 15% 35%; /* Darker brown for secondary */
+    --secondary-foreground: 0 0% 95%;
+    --muted: 142 30% 15%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 25 15% 55%; /* Warm brown accent */
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 62.8% 50%;
+    --destructive-foreground: 0 0% 95%;
+    --border: 142 30% 18%;
+    --input: 0 0% 100%;
+    --ring: 35 25% 85%;
+    /* Dark mode chart colors */
+    --chart-1: 35 25% 85%; /* Light cream */
+    --chart-2: 25 60% 55%; /* Brown */
+    --chart-3: 25 100% 60%; /* Orange */
+    --chart-4: 240 50% 25%; /* Light navy */
+    --chart-5: 240 30% 35%; /* Medium navy */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  
+  /* Force white backgrounds for all input elements */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="date"],
+  input[type="search"],
+  select,
+  textarea {
+    @apply bg-white border-gray-300 text-gray-900;
+  }
+  
+  /* Dark mode input overrides */
+  .dark input[type="text"],
+  .dark input[type="email"],
+  .dark input[type="password"],
+  .dark input[type="number"],
+  .dark input[type="tel"],
+  .dark input[type="date"],
+  .dark input[type="search"],
+  .dark select,
+  .dark textarea {
+    @apply bg-white border-gray-300 text-gray-900;
+  }
+  
+  /* Ensure date picker calendar icon is visible */
+  input[type="date"] {
+    position: relative;
+    color-scheme: light;
+  }
+  
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    color: #16a34a;
+    opacity: 1;
+    display: block;
+    background: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2316a34a'%3e%3cpath fill-rule='evenodd' d='M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z' clip-rule='evenodd'/%3e%3c/svg%3e") no-repeat;
+    background-size: 16px 16px;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+  }
+  
+  /* Firefox date picker icon */
+  input[type="date"]::-moz-calendar-picker-indicator {
+    color: #16a34a;
+    opacity: 1;
+  }
+}

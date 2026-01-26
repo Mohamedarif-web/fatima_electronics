@@ -1,0 +1,143 @@
+/* GST Invoice Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-content {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 15px !important;
+    background: white !important;
+  }
+  
+  body {
+    margin: 0;
+    padding: 0;
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  @page {
+    margin: 0.5in;
+    size: A4;
+  }
+  
+  /* Table styles for print */
+  table {
+    page-break-inside: avoid;
+  }
+  
+  tr {
+    page-break-inside: avoid;
+  }
+  
+  /* Ensure text is black for print */
+  * {
+    color: black !important;
+  }
+  
+  /* Border styles for print */
+  .border, .border-gray-400 {
+    border: 1px solid #000 !important;
+  }
+  
+  .border-t {
+    border-top: 1px solid #000 !important;
+  }
+  
+  .border-b {
+    border-bottom: 1px solid #000 !important;
+  }
+  
+  .border-l {
+    border-left: 1px solid #000 !important;
+  }
+  
+  .border-r {
+    border-right: 1px solid #000 !important;
+  }
+  
+  /* Background colors for print */
+  .bg-gray-200 {
+    background-color: #f5f5f5 !important;
+  }
+  
+  /* Font sizes for print */
+  .text-xs {
+    font-size: 10px !important;
+  }
+  
+  .text-sm {
+    font-size: 12px !important;
+  }
+  
+  .text-base {
+    font-size: 14px !important;
+  }
+  
+  .text-lg {
+    font-size: 16px !important;
+  }
+  
+  .text-xl {
+    font-size: 18px !important;
+  }
+  
+  .text-2xl {
+    font-size: 20px !important;
+  }
+}
+
+/* Screen-only styles */
+@media screen {
+  .gst-invoice-container {
+    max-width: 8.5in;
+    margin: 0 auto;
+    background: white;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  }
+  
+  .invoice-actions {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    border: 1px solid #e9ecef;
+  }
+  
+  .print-preview {
+    border: 1px solid #ddd;
+    background: white;
+    padding: 2rem;
+    margin: 1rem 0;
+  }
+}
+
+/* PDF-specific styles - simplified approach */
+.pdf-export-mode {
+  background: white !important;
+  color: black !important;
+  font-family: 'Times New Roman', serif !important;
+}
+
+/* Only target specific elements that need fixing */
+.pdf-export-mode .text-gray-900,
+.pdf-export-mode .text-gray-800,
+.pdf-export-mode .text-gray-700,
+.pdf-export-mode .text-gray-600,
+.pdf-export-mode .text-gray-500 {
+  color: black !important;
+}
+
+.pdf-export-mode .bg-gray-200 {
+  background-color: #e5e5e5 !important;
+  color: black !important;
+}
+
+.pdf-export-mode .bg-gray-50 {
+  background-color: #f0f0f0 !important;
+  color: black !important;
+}
