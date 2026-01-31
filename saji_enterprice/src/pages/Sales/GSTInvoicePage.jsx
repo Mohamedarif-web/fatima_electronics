@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import GSTInvoice from '../../components/GSTInvoice';
 import db from '../../utils/database';
+import showToast from '../../utils/toast';
 import '../../styles/invoice-print.css';
 
 const GSTInvoicePage = () => {
@@ -42,7 +43,7 @@ const GSTInvoicePage = () => {
       `, [invoiceId]);
 
       if (!invoice) {
-        alert('Invoice not found!');
+        showToast.error('Invoice not found!');
         navigate('/sales');
         return;
       }
@@ -183,7 +184,7 @@ const GSTInvoicePage = () => {
       setInvoiceData(transformedData);
     } catch (error) {
       console.error('Error loading invoice data:', error);
-      alert('Error loading invoice: ' + error.message);
+      showToast.error('Error loading invoice: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -193,10 +194,10 @@ const GSTInvoicePage = () => {
     try {
       // This would integrate with your existing sales invoice save logic
       console.log('Saving GST Invoice:', invoiceData);
-      alert('GST Invoice format ready for integration with sales system!');
+      showToast.info('GST Invoice format ready for integration with sales system!');
     } catch (error) {
       console.error('Error saving invoice:', error);
-      alert('Error saving invoice: ' + error.message);
+      showToast.error('Error saving invoice: ' + error.message);
     }
   };
 

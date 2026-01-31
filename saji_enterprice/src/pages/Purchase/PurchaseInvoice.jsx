@@ -5,6 +5,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '.
 import { Plus, Trash2, Save, FileText, Search, Edit } from 'lucide-react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import db from '../../utils/database';
+import showToast from '../../utils/toast';
 
 const PurchaseInvoice = () => {
   const { purchaseId } = useParams();
@@ -141,13 +142,13 @@ const PurchaseInvoice = () => {
       setAccounts(data);
       
       if (!data || data.length === 0) {
-        alert('No bank accounts found. Please create accounts in Bank/Cash management first.');
+        showToast.warning('No bank accounts found. Please create accounts in Bank/Cash management first.');
       }
       
       console.log('📋 Loaded accounts for purchase:', data.map(acc => ({ id: acc.account_id, name: acc.account_name })));
     } catch (error) {
       console.error('Error loading accounts:', error);
-      alert('Failed to load bank accounts. Please create accounts in Bank/Cash management first.');
+      showToast.error('Failed to load bank accounts. Please create accounts in Bank/Cash management first.');
       setAccounts([]);
     }
   };
@@ -186,7 +187,7 @@ const PurchaseInvoice = () => {
       setSuppliers(data);
     } catch (error) {
       console.error('❌ Error loading suppliers:', error);
-      alert('Error loading suppliers: ' + error.message);
+      showToast.error('Error loading suppliers: ' + error.message);
     }
   };
 
@@ -215,7 +216,7 @@ const PurchaseInvoice = () => {
         console.log('🔍 Available purchases in DB:');
         const allPurchases = await db.query('SELECT purchase_id, bill_number FROM purchase_invoices WHERE is_deleted = 0');
         console.log(allPurchases);
-        alert(`Purchase invoice ${purchaseId} not found. Available purchases: ${allPurchases.map(p => `${p.purchase_id}(${p.bill_number})`).join(', ')}`);
+        showToast.error(`Purchase invoice ${purchaseId} not found.`);
         navigate('/purchase');
         return;
       }
@@ -295,7 +296,7 @@ const PurchaseInvoice = () => {
               original_quantity: parseFloat(item.quantity) || 0, // Store original for calculations
               rate: parseFloat(item.rate) || 0,
               discount_percent: parseFloat(item.discount_percent) || 0,
-              tax_rate: parseFloat(item.tax_rate) || parseFloat(product.gst_rate) || 18
+              tax_rate: parseFloat(item.tax_rate) || parseFloat(product.gst_rate) || 0
             };
           })
         );
@@ -323,7 +324,7 @@ const PurchaseInvoice = () => {
       
     } catch (error) {
       console.error('❌ Error loading purchase for edit:', error);
-      alert('Error loading purchase invoice: ' + error.message);
+      showToast.error('Error loading purchase invoice: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -377,7 +378,7 @@ const PurchaseInvoice = () => {
         quantity: 1,
         rate: defaultPrice,
         discount_percent: 0,
-        tax_rate: item.gst_rate || 18
+        tax_rate: item.gst_rate || 0
       };
       console.log(`📦 Added new item: ${item.product_name} (Stock: ${item.current_stock || 0}, Price: ₹${newItem.rate})`);
       setInvoiceItems(prev => [...prev, newItem]);
@@ -478,17 +479,17 @@ const PurchaseInvoice = () => {
 
   const validateInvoice = () => {
     if (!invoiceData.supplier_id) {
-      alert('Please select a supplier');
+      showToast.warning('Please select a supplier');
       return false;
     }
 
     if (!invoiceData.bill_number.trim()) {
-      alert('Please enter bill number');
+      showToast.warning('Please enter bill number');
       return false;
     }
 
     if (invoiceItems.length === 0) {
-      alert('Please add at least one item');
+      showToast.warning('Please add at least one item');
       return false;
     }
 
@@ -509,7 +510,7 @@ const PurchaseInvoice = () => {
         }
         
         if (availableBalance < paymentData.amount_paid) {
-          alert(`Insufficient balance in ${selectedAccount.account_name}. Available: ₹${availableBalance.toFixed(2)}, Payment Amount: ₹${paymentData.amount_paid.toFixed(2)}`);
+          showToast.error(`Insufficient balance in ${selectedAccount.account_name}. Available: ₹${availableBalance.toFixed(2)}, Payment Amount: ₹${paymentData.amount_paid.toFixed(2)}`);
           return false;
         }
       }
@@ -532,7 +533,7 @@ const PurchaseInvoice = () => {
       
     } catch (error) {
       console.error('Error saving purchase invoice:', error);
-      alert('Error saving purchase bill: ' + error.message);
+      showToast.error('Error saving purchase bill: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -681,7 +682,7 @@ const PurchaseInvoice = () => {
         }
       }
 
-    alert(`Purchase Bill ${invoice.bill_number} saved successfully!`);
+    showToast.success(`Purchase Bill ${invoice.bill_number} saved successfully!`);
     resetForm();
   };
 
@@ -854,7 +855,7 @@ const PurchaseInvoice = () => {
       }
     }
 
-    alert(`Purchase Bill ${invoice.bill_number} updated successfully!`);
+    showToast.success(`Purchase Bill ${invoice.bill_number} updated successfully!`);
     navigate('/purchase');
   };
 
@@ -1136,7 +1137,7 @@ const PurchaseInvoice = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <input
                   type="text"
-                  placeholder="🔍 Search and add items..."
+                  placeholder="Search and add items..."
                   value={itemSearch}
                   onChange={(e) => {
                     setItemSearch(e.target.value);

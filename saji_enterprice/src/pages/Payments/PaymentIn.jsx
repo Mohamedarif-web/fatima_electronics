@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../../components/ui/table';
 import { Plus, Search, Save, FileText, Calendar, CreditCard, User, Building2, Wallet, ArrowLeft, CheckCircle, Edit, Trash2, RefreshCw } from 'lucide-react';
 import db from '../../utils/database';
+import showToast from '../../utils/toast';
 
 const PaymentIn = () => {
   const [customers, setCustomers] = useState([]);
@@ -489,12 +490,12 @@ const PaymentIn = () => {
       // Reload customers to get updated balances
       await loadCustomers();
 
-      alert(`Payment ${payment.payment_number} deleted successfully!`);
+      showToast.success(`Payment ${payment.payment_number} deleted successfully!`);
       await loadPayments();
 
     } catch (error) {
       console.error('❌ Error deleting payment:', error);
-      alert('Error deleting payment: ' + error.message);
+      showToast.error('Error deleting payment: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -502,7 +503,7 @@ const PaymentIn = () => {
 
   const savePayment = async () => {
     if (!paymentData.party_id || !paymentAmount || parseFloat(paymentAmount) <= 0) {
-      alert('Please select customer and enter payment amount');
+      showToast.warning('Please select customer and enter payment amount');
       return;
     }
 
@@ -520,14 +521,14 @@ const PaymentIn = () => {
       `, [paymentData.party_id]);
       
       if (!freshCustomer) {
-        alert('Customer not found. Please try again.');
+        showToast.error('Customer not found. Please try again.');
         return;
       }
       
       const maxPayment = Math.abs(freshCustomer.current_balance || 0);
       
       if (paymentAmountNum > maxPayment) {
-        alert(`Payment amount ₹${paymentAmountNum.toFixed(2)} cannot exceed outstanding balance of ₹${maxPayment.toFixed(2)} for ${freshCustomer.name}`);
+        showToast.warning(`Payment amount ₹${paymentAmountNum.toFixed(2)} cannot exceed outstanding balance of ₹${maxPayment.toFixed(2)} for ${freshCustomer.name}`);
         return;
       }
     } else {
@@ -586,7 +587,7 @@ const PaymentIn = () => {
         // Payment record has been updated - party balance will be recalculated from all transactions
         console.log('ℹ️ Payment record updated - party balance will be recalculated from all transactions');
 
-        alert(`Payment ${editingPayment.payment_number} updated successfully!`);
+        showToast.success(`Payment ${editingPayment.payment_number} updated successfully!`);
 
       } else {
         // CREATE NEW PAYMENT
@@ -623,7 +624,7 @@ const PaymentIn = () => {
         console.log(`   - Account "${accountAfter?.account_name}" balance AFTER: ₹${accountAfter?.current_balance || 'unknown'}`);
         console.log(`   - ✅ Account update complete: +₹${paymentAmountNum}`);
 
-        alert(`Payment ${paymentNumber} of ₹${paymentAmountNum.toFixed(2)} recorded successfully!`);
+        showToast.success(`Payment ${paymentNumber} of ₹${paymentAmountNum.toFixed(2)} recorded successfully!`);
       }
 
       // 🔥 FIX: Always recalculate party balance from scratch after any payment change
@@ -656,7 +657,7 @@ const PaymentIn = () => {
 
     } catch (error) {
       console.error('❌ Error saving payment:', error);
-      alert('Error saving payment: ' + error.message);
+      showToast.error('Error saving payment: ' + error.message);
     } finally {
       setLoading(false);
     }

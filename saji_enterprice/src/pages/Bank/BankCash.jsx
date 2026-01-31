@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../../components/ui/table';
 import { Plus, Search, Save, Edit, Trash2, Wallet, Building2, Eye, Minus } from 'lucide-react';
 import db from '../../utils/database';
+import showToast from '../../utils/toast';
 
 const BankCash = () => {
   const [accounts, setAccounts] = useState([]);
@@ -297,7 +298,7 @@ const BankCash = () => {
 
   const saveAccount = async () => {
     if (!accountData.account_name) {
-      alert('Please enter account name');
+      showToast.warning('Please enter account name');
       return;
     }
 
@@ -319,7 +320,7 @@ const BankCash = () => {
           accountData.ifsc_code || null, editingAccount.account_id
         ]);
 
-        alert('Account updated successfully!');
+        showToast.success('Account updated successfully!');
       } else {
         // Create new account
         await db.run(`
@@ -333,7 +334,7 @@ const BankCash = () => {
           accountData.ifsc_code || null, openingBalance, openingBalance
         ]);
 
-        alert('Account created successfully!');
+        showToast.success('Account created successfully!');
       }
 
 
@@ -342,7 +343,7 @@ const BankCash = () => {
 
     } catch (error) {
       console.error('Error saving account:', error);
-      alert('Error saving account: ' + error.message);
+      showToast.error('Error saving account: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -366,10 +367,10 @@ const BankCash = () => {
       try {
         await db.run('UPDATE accounts SET is_deleted = 1 WHERE account_id = ?', [accountId]);
         await loadAccounts();
-        alert('Account deleted successfully');
+        showToast.success('Account deleted successfully');
       } catch (error) {
         console.error('Error deleting account:', error);
-        alert('Error deleting account: ' + error.message);
+        showToast.error('Error deleting account: ' + error.message);
       }
     }
   };
@@ -386,12 +387,12 @@ const BankCash = () => {
     console.log('Adjustment data:', adjustmentData);
 
     if (!selectedAccount || !adjustmentData.amount) {
-      alert('Please enter an amount');
+      showToast.warning('Please enter an amount');
       return;
     }
 
     if (parseFloat(adjustmentData.amount) <= 0) {
-      alert('Amount must be greater than 0');
+      showToast.warning('Amount must be greater than 0');
       return;
     }
 
@@ -461,7 +462,7 @@ const BankCash = () => {
         // Continue anyway - balance was updated successfully
       }
 
-      alert(`₹${amount.toLocaleString()} ${adjustmentData.type === 'add' ? 'added to' : 'deducted from'} ${selectedAccount.account_name} successfully!`);
+      showToast.success(`₹${amount.toLocaleString()} ${adjustmentData.type === 'add' ? 'added to' : 'deducted from'} ${selectedAccount.account_name} successfully!`);
       
       setShowAdjustmentModal(false);
       resetAdjustmentForm();
@@ -469,7 +470,7 @@ const BankCash = () => {
       
     } catch (error) {
       console.error('Error adjusting balance:', error);
-      alert('Error adjusting balance: ' + error.message);
+      showToast.error('Error adjusting balance: ' + error.message);
     } finally {
       setLoading(false);
     }

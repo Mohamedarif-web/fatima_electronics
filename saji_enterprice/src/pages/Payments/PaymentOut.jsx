@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../../components/ui/table';
 import { Plus, Search, Save, Edit, Trash2 } from 'lucide-react';
 import db from '../../utils/database';
+import showToast from '../../utils/toast';
 
 const PaymentOut = () => {
   const [searchParams] = useSearchParams();
@@ -230,7 +231,7 @@ const PaymentOut = () => {
         };
         setPaymentData(() => formData);
       } else {
-        alert('Supplier not found. Please try again.');
+        showToast.error('Supplier not found. Please try again.');
         return;
       }
     }
@@ -276,7 +277,7 @@ const PaymentOut = () => {
         WHERE payment_id = ?
       `, [payment.payment_id]);
       
-      alert(`Payment ${payment.payment_number} deleted successfully!`);
+      showToast.success(`Payment ${payment.payment_number} deleted successfully!`);
       
       // Reload data
       await loadPayments();
@@ -284,7 +285,7 @@ const PaymentOut = () => {
       
     } catch (error) {
       console.error('Error deleting payment:', error);
-      alert('Error deleting payment: ' + error.message);
+      showToast.error('Error deleting payment: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -346,7 +347,7 @@ const PaymentOut = () => {
 
   const savePayment = async () => {
     if (!paymentData.party_id || !paymentData.amount || !paymentData.account_id) {
-      alert('Please fill all required fields: supplier, amount, and account.');
+      showToast.warning('Please fill all required fields: supplier, amount, and account.');
       return;
     }
 
@@ -407,7 +408,7 @@ const PaymentOut = () => {
           WHERE supplier_id = ?
         `, [paymentAmountNum, paymentData.party_id]);
 
-        alert(`Payment ${editingPayment.payment_number} updated successfully!`);
+        showToast.success(`Payment ${editingPayment.payment_number} updated successfully!`);
       } else {
         // CREATE NEW PAYMENT
         const paymentNumber = await db.getNextSequence('payment_out');
@@ -441,12 +442,12 @@ const PaymentOut = () => {
           `, [paymentAmountNum, paymentData.account_id]);
         }
 
-        alert(`Payment ${paymentNumber} recorded successfully!`);
+        showToast.success(`Payment ${paymentNumber} recorded successfully!`);
         
         // Check if user came from purchase invoice and redirect back
         const cameFromPurchase = searchParams.get('add') === 'true' && searchParams.get('from') === 'purchase';
         if (cameFromPurchase) {
-          alert('Payment saved successfully! Redirecting back to purchase invoice...');
+          showToast.success('Payment saved successfully! Redirecting back to purchase invoice...');
           navigate('/purchase/bill');
           return;
         }
@@ -458,7 +459,7 @@ const PaymentOut = () => {
 
     } catch (error) {
       console.error('Error saving payment:', error);
-      alert('Error saving payment: ' + error.message);
+      showToast.error('Error saving payment: ' + error.message);
     } finally {
       setLoading(false);
     }

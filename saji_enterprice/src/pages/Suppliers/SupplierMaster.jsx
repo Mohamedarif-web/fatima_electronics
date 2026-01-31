@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import db from '../../utils/database';
+import showToast from '../../utils/toast';
 
 const SupplierMaster = () => {
   console.log('🎯 SupplierMaster component is rendering!');
@@ -84,7 +85,7 @@ const SupplierMaster = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      alert('Please enter supplier name');
+      showToast.warning('Please enter supplier name');
       return;
     }
 
@@ -119,10 +120,11 @@ const SupplierMaster = () => {
 
       resetForm();
       await loadSuppliers();
+      showToast.success(editingSupplier ? 'Supplier updated successfully!' : 'Supplier added successfully!');
       
     } catch (error) {
       console.error('❌ Error saving supplier:', error);
-      alert('Error saving supplier: ' + error.message);
+      showToast.error('Error saving supplier: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -149,9 +151,10 @@ const SupplierMaster = () => {
       await db.run('UPDATE suppliers SET is_deleted = 1 WHERE supplier_id = ?', [supplier.supplier_id]);
       console.log('🗑️ Deleted supplier:', supplier.name);
       await loadSuppliers();
+      showToast.success('Supplier deleted successfully!');
     } catch (error) {
       console.error('❌ Error deleting supplier:', error);
-      alert('Error deleting supplier: ' + error.message);
+      showToast.error('Error deleting supplier: ' + error.message);
     } finally {
       setLoading(false);
     }

@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../../components/ui/table';
 import { Plus, Search, Save, Edit, Trash2, Calendar, Settings, X } from 'lucide-react';
 import db from '../../utils/database';
+import showToast from '../../utils/toast';
 
 const ExpenseTracker = () => {
   const [expenses, setExpenses] = useState([]);
@@ -101,12 +102,12 @@ const ExpenseTracker = () => {
 
   const saveExpense = async () => {
     if (!expenseData.category_id || !expenseData.description || !expenseData.amount) {
-      alert('Please fill all required fields (category, description, amount).');
+      showToast.warning('Please fill all required fields (category, description, amount).');
       return;
     }
     
     if (!expenseData.account_id) {
-      alert('Please select an account to deduct the expense amount from.');
+      showToast.warning('Please select an account to deduct the expense amount from.');
       return;
     }
 
@@ -116,7 +117,7 @@ const ExpenseTracker = () => {
       const amount = parseFloat(expenseData.amount);
       
       if (isNaN(amount) || amount <= 0) {
-        alert('Please enter a valid amount');
+        showToast.warning('Please enter a valid amount');
         return;
       }
 
@@ -154,7 +155,7 @@ const ExpenseTracker = () => {
           WHERE account_id = ?
         `, [amount, expenseData.account_id]);
 
-        alert('Expense updated successfully!');
+        showToast.success('Expense updated successfully!');
       } else {
         // Get next expense number
         const expenseNumber = await db.getNextSequence('expense');
@@ -185,7 +186,7 @@ const ExpenseTracker = () => {
           console.log(`⚠️ No account selected - expense recorded without bank deduction`);
         }
 
-        alert(`Expense ${expenseNumber} recorded successfully!`);
+        showToast.success(`Expense ${expenseNumber} recorded successfully!`);
       }
 
       // Commit transaction
@@ -198,7 +199,7 @@ const ExpenseTracker = () => {
       // Rollback on error
       await db.run('ROLLBACK');
       console.error('Error saving expense:', error);
-      alert('Error saving expense: ' + error.message);
+      showToast.error('Error saving expense: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -242,12 +243,12 @@ const ExpenseTracker = () => {
         await db.run('COMMIT');
         
         await loadExpenses();
-        alert('Expense deleted successfully and amount restored to account');
+        showToast.success('Expense deleted successfully and amount restored to account');
       } catch (error) {
         // Rollback on error
         await db.run('ROLLBACK');
         console.error('Error deleting expense:', error);
-        alert('Error deleting expense: ' + error.message);
+        showToast.error('Error deleting expense: ' + error.message);
       } finally {
         setLoading(false);
       }
@@ -273,7 +274,7 @@ const ExpenseTracker = () => {
   // Category Management Functions
   const saveCategory = async () => {
     if (!categoryData.category_name.trim()) {
-      alert('Please enter a category name');
+      showToast.warning('Please enter a category name');
       return;
     }
 
@@ -286,13 +287,13 @@ const ExpenseTracker = () => {
             category_name = ?, description = ?, updated_at = CURRENT_TIMESTAMP
           WHERE category_id = ?
         `, [categoryData.category_name.trim(), categoryData.description?.trim() || null, editingCategory.category_id]);
-        alert('Category updated successfully!');
+        showToast.success('Category updated successfully!');
       } else {
         await db.run(`
           INSERT INTO expense_categories (category_name, description) 
           VALUES (?, ?)
         `, [categoryData.category_name.trim(), categoryData.description?.trim() || null]);
-        alert('Category added successfully!');
+        showToast.success('Category added successfully!');
       }
 
       resetCategoryForm();
@@ -300,9 +301,9 @@ const ExpenseTracker = () => {
     } catch (error) {
       console.error('Error saving category:', error);
       if (error.message.includes('UNIQUE constraint failed')) {
-        alert('This category name already exists');
+        showToast.error('This category name already exists');
       } else {
-        alert('Error saving category: ' + error.message);
+        showToast.error('Error saving category: ' + error.message);
       }
     } finally {
       setLoading(false);
@@ -322,10 +323,10 @@ const ExpenseTracker = () => {
       try {
         await db.run('UPDATE expense_categories SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE category_id = ?', [categoryId]);
         await loadCategories();
-        alert('Category deleted successfully');
+        showToast.success('Category deleted successfully');
       } catch (error) {
         console.error('Error deleting category:', error);
-        alert('Error deleting category: ' + error.message);
+        showToast.error('Error deleting category: ' + error.message);
       }
     }
   };
@@ -336,7 +337,7 @@ const ExpenseTracker = () => {
       await loadCategories();
     } catch (error) {
       console.error('Error updating category status:', error);
-      alert('Error updating category status: ' + error.message);
+      showToast.error('Error updating category status: ' + error.message);
     }
   };
 

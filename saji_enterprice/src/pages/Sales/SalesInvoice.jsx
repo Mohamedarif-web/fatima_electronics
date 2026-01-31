@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../../components/ui/table';
 import { Plus, Trash2, Save, FileText, Search, List, Calendar } from 'lucide-react';
 import db from '../../utils/database';
+import showToast from '../../utils/toast';
 
 const SalesInvoice = () => {
   const navigate = useNavigate();
@@ -71,6 +72,16 @@ const SalesInvoice = () => {
   // Restore invoice data from localStorage
   const restoreInvoiceData = () => {
     try {
+      // Don't restore if we're editing or returning an invoice
+      const editId = searchParams.get('edit');
+      const returnId = searchParams.get('return');
+      
+      if (editId || returnId) {
+        console.log('🚫 Skipping localStorage restore - editing/returning invoice');
+        localStorage.removeItem('tempInvoiceData'); // Clear any old data
+        return;
+      }
+      
       const savedData = localStorage.getItem('tempInvoiceData');
       if (savedData) {
         const parsedData = JSON.parse(savedData);
@@ -78,7 +89,7 @@ const SalesInvoice = () => {
         // Check if data is less than 1 hour old
         const hoursSinceCreation = (Date.now() - parsedData.timestamp) / (1000 * 60 * 60);
         
-        if (hoursSinceCreation < 1 && !editingInvoice) {
+        if (hoursSinceCreation < 1) {
           setInvoiceData(parsedData.invoiceData || invoiceData);
           setInvoiceItems(parsedData.invoiceItems || []);
           setCustomerSearch(parsedData.customerSearch || '');
@@ -100,24 +111,43 @@ const SalesInvoice = () => {
     // Check if editing mode or return mode from URL params using React Router
     const editId = searchParams.get('edit');
     const returnId = searchParams.get('return');
-    console.log('Search params:', searchParams.toString());
-    console.log('Edit ID:', editId, 'Return ID:', returnId);
+    console.log('📋 URL Search params:', searchParams.toString());
+    console.log('📋 Edit ID:', editId, 'Return ID:', returnId);
+    console.log('📋 Customers loaded:', customers.length, 'Items loaded:', items.length);
     
     if (editId && customers.length > 0 && items.length > 0) {
-      console.log('Loading invoice for edit:', editId);
+      console.log('✅ Loading invoice for edit:', editId);
       loadInvoiceForEdit(editId);
     } else if (returnId && customers.length > 0 && items.length > 0) {
-      console.log('Loading invoice for return:', returnId);
+      console.log('✅ Loading invoice for return:', returnId);
       loadInvoiceForReturn(returnId);
+    } else if (editId || returnId) {
+      console.warn('⚠️ Cannot load invoice yet - waiting for data. Customers:', customers.length, 'Items:', items.length);
     }
   }, [customers, items, searchParams]); // Run when customers, items, or search params change
 
   const loadCustomers = async () => {
     try {
+      console.log('🔍 Loading customers...');
       const data = await db.getParties('customer');
-      setCustomers(data);
+      console.log('📦 Raw customer data received:', data);
+      console.log('📊 Number of customers:', data?.length);
+      console.log('📋 First customer sample:', data?.[0]);
+      
+      // Filter out any invalid/empty customer records
+      const validCustomers = (data || []).filter(customer => 
+        customer && customer.party_id && customer.name
+      );
+      
+      console.log('✅ Valid customers after filtering:', validCustomers.length);
+      if (validCustomers.length !== data?.length) {
+        console.warn('⚠️ Some invalid customer records were filtered out');
+      }
+      
+      setCustomers(validCustomers);
     } catch (error) {
-      console.error('Error loading customers:', error);
+      console.error('❌ Error loading customers:', error);
+      setCustomers([]);
     }
   };
 
@@ -149,11 +179,14 @@ const SalesInvoice = () => {
   const loadInvoiceForReturn = async (invoiceId) => {
     try {
       setLoading(true);
-      console.log('Loading invoice for return. Invoice ID:', invoiceId);
+      console.log('🔄 ========== LOADING INVOICE FOR RETURN ==========');
+      console.log('🔄 Invoice ID:', invoiceId);
+      console.log('🔄 Customers available:', customers.length);
+      console.log('🔄 Items available:', items.length);
       
       // Get invoice data
       const invoice = await db.get('SELECT * FROM sales_invoices WHERE invoice_id = ?', [invoiceId]);
-      console.log('Invoice found for return:', invoice);
+      console.log('📄 Invoice found for return:', invoice);
       
       if (invoice) {
         console.log('Setting up return mode for invoice:', invoice);
@@ -170,17 +203,31 @@ const SalesInvoice = () => {
         
         // Find customer name for search field
         const customer = customers.find(c => c.party_id === invoice.party_id);
+        console.log('🔍 Looking for customer with party_id:', invoice.party_id);
+        console.log('📋 Available customers:', customers.length);
+        console.log('✅ Customer found for return:', customer);
         if (customer) {
           setCustomerSearch(customer.name);
+          console.log('✅ Customer search set to:', customer.name);
+        } else {
+          console.warn('⚠️ Customer not found! party_id:', invoice.party_id);
         }
 
         // Load invoice items for return
         const invoiceItems = await db.query('SELECT * FROM sales_invoice_items WHERE invoice_id = ?', [invoiceId]);
+        console.log('📦 Invoice items from database:', invoiceItems.length, 'items');
+        console.log('📦 First item sample:', invoiceItems[0]);
         
         if (invoiceItems.length > 0) {
           const itemsForReturn = await Promise.all(
             invoiceItems.map(async (item) => {
               const product = await db.getItemById(item.item_id);
+              
+              if (!product) {
+                console.warn(`⚠️ Product not found for item_id: ${item.item_id}, skipping...`);
+                return null;
+              }
+              
               const alreadyReturned = item.return_quantity || 0;
               const returnableQuantity = item.quantity - alreadyReturned;
               
@@ -191,8 +238,8 @@ const SalesInvoice = () => {
                 rate: item.rate,
                 discount_percent: item.discount_percent || 0,
                 tax_rate: item.tax_rate || 0,
-                current_stock: product.current_stock,
-                available_stock: product.current_stock,
+                current_stock: product.current_stock || 0,
+                available_stock: product.current_stock || 0,
                 return_quantity: alreadyReturned, // Show existing returned quantity
                 max_returnable: item.quantity, // Maximum that can be returned (total quantity)
                 already_returned: alreadyReturned, // Previously returned quantity
@@ -202,16 +249,22 @@ const SalesInvoice = () => {
             })
           );
           
-          console.log('✅ Items loaded for return:', itemsForReturn);
-          setInvoiceItems(itemsForReturn);
+          // Filter out null items (deleted products)
+          const validItems = itemsForReturn.filter(item => item !== null);
+          console.log('✅ Valid items for return:', validItems.length);
+          console.log('✅ Setting invoice items state...');
+          setInvoiceItems(validItems);
+          console.log('✅ Invoice items state set! Items:', validItems.length);
+        } else {
+          console.warn('⚠️ No invoice items found in database!');
         }
       } else {
         console.log('No invoice found for return ID:', invoiceId);
-        alert('Invoice not found');
+        showToast.error('Invoice not found');
       }
     } catch (error) {
       console.error('Error loading invoice for return:', error);
-      alert('Error loading invoice for return: ' + error.message);
+      showToast.error('Error loading invoice for return: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -348,17 +401,18 @@ const SalesInvoice = () => {
         }
       } else {
         console.log('No invoice found for ID:', invoiceId);
-        alert('Invoice not found');
+        showToast.error('Invoice not found');
       }
     } catch (error) {
       console.error('Error loading invoice for edit:', error);
-      alert('Error loading invoice for editing: ' + error.message);
+      showToast.error('Error loading invoice for editing: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleInputChange = (e) => {
+    console.log('📝 Input change event:', e.target.name, 'Loading state:', loading);
     const { name, value } = e.target;
     setInvoiceData(prev => ({ ...prev, [name]: value }));
   };
@@ -641,12 +695,12 @@ const SalesInvoice = () => {
 
   const validateInvoice = () => {
     if (!invoiceData.party_id) {
-      alert('Please select a customer');
+      showToast.warning('Please select a customer');
       return false;
     }
 
     if (invoiceItems.length === 0) {
-      alert('Please add at least one item');
+      showToast.warning('Please add at least one item');
       return false;
     }
 
@@ -660,6 +714,7 @@ const SalesInvoice = () => {
     if (!validateInvoice()) return;
 
     try {
+      console.log('🔄 Setting loading to TRUE - form will be disabled');
       setLoading(true);
       
       // Get invoice number (use existing for edit, generate new for create)
@@ -1012,23 +1067,24 @@ const SalesInvoice = () => {
       await refreshItemStocks();
       
       if (editingInvoice?.isReturnMode) {
-        alert(`Return processed successfully for Invoice ${invoiceNumber}!`);
+        showToast.success(`Return processed successfully for Invoice ${invoiceNumber}!`);
         // Navigate to sales list after successful return processing
         navigate('/sales/list');
       } else if (editingInvoice) {
-        alert(`Invoice ${invoiceNumber} updated successfully!`);
+        showToast.success(`Invoice ${invoiceNumber} updated successfully!`);
         // Navigate to sales list after successful update
         navigate('/sales/list');
       } else {
-        alert(`Invoice ${invoiceNumber} saved successfully!`);
+        showToast.success(`Invoice ${invoiceNumber} saved successfully!`);
         // For new invoices, reset form to create another invoice
         resetForm();
       }
       
     } catch (error) {
       console.error('Error saving invoice:', error);
-      alert('Error saving invoice: ' + error.message);
+      showToast.error('Error saving invoice: ' + error.message);
     } finally {
+      console.log('✅ Setting loading to FALSE - form should be enabled');
       setLoading(false);
     }
   };
@@ -1062,9 +1118,24 @@ const SalesInvoice = () => {
     console.log('✅ Form reset complete - ready for new invoice');
   };
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(customerSearch.toLowerCase())
-  );
+  const filteredCustomers = customers.filter(customer => {
+    // Safety check for customer data
+    if (!customer || !customer.name) {
+      console.warn('⚠️ Invalid customer in filter:', customer);
+      return false;
+    }
+    return customer.name.toLowerCase().includes(customerSearch.toLowerCase());
+  });
+
+  // Debug filtered customers
+  if (showCustomerDropdown && customerSearch) {
+    console.log('🔎 Filtering customers with search:', customerSearch);
+    console.log('📋 Total customers:', customers.length);
+    console.log('✅ Filtered customers:', filteredCustomers.length);
+    if (filteredCustomers.length > 0) {
+      console.log('👤 First filtered customer:', filteredCustomers[0]);
+    }
+  }
 
   const filteredItems = items.filter(item =>
     item.product_name.toLowerCase().includes(itemSearch.toLowerCase()) ||
@@ -1151,9 +1222,6 @@ const SalesInvoice = () => {
                       fontSize: '16px'
                     }}
                   />
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                    <Calendar className="w-5 h-5 text-gray-400" />
-                  </div>
                 </div>
               </div>
 
@@ -1194,11 +1262,19 @@ const SalesInvoice = () => {
                   placeholder="Search and select customer..."
                   value={customerSearch}
                   onChange={(e) => {
-                    setCustomerSearch(e.target.value);
+                    const searchValue = e.target.value;
+                    console.log('🔍 Customer search changed:', searchValue);
+                    setCustomerSearch(searchValue);
                     setShowCustomerDropdown(true);
                     setSelectedCustomerIndex(-1);
+                    console.log('📋 Available customers:', customers.length);
+                    console.log('🎯 Should show dropdown:', true);
                   }}
-                  onFocus={() => setShowCustomerDropdown(true)}
+                  onFocus={() => {
+                    console.log('👆 Customer input focused');
+                    console.log('📊 Customers available:', customers.length);
+                    setShowCustomerDropdown(true);
+                  }}
                   onKeyDown={handleCustomerSearchKeyDown}
                   onBlur={() => {
                     // Delay hiding dropdown to allow click selection
@@ -1218,27 +1294,42 @@ const SalesInvoice = () => {
                     marginTop: '4px',
                     zIndex: 9999
                   }}
+                  onMouseDown={(e) => {
+                    // Prevent input blur when clicking dropdown
+                    e.preventDefault();
+                    console.log('🖱️ Dropdown clicked');
+                  }}
                 >
-                  {filteredCustomers.map((customer, index) => (
-                    <div
-                      key={customer.party_id}
-                      onClick={() => selectCustomer(customer)}
-                      className={`px-4 py-2 cursor-pointer border-b border-gray-100 last:border-b-0 ${
-                        index === selectedCustomerIndex 
-                          ? 'bg-fatima-green text-white' 
-                          : 'hover:bg-gray-100'
-                      }`}
-                    >
-                      <div className="font-medium">{customer.name}</div>
-                      <div className={`text-sm ${
-                        index === selectedCustomerIndex 
-                          ? 'text-green-100' 
-                          : 'text-muted-foreground'
-                      }`}>
-                        {customer.phone}
+                  {filteredCustomers.map((customer, index) => {
+                    console.log(`📋 Rendering customer ${index}:`, customer.name, customer.party_id);
+                    return (
+                      <div
+                        key={customer.party_id}
+                        onClick={() => {
+                          console.log('👆 Customer clicked:', customer.name, customer.party_id);
+                          selectCustomer(customer);
+                        }}
+                        onMouseDown={(e) => {
+                          // Prevent blur before click fires
+                          e.preventDefault();
+                        }}
+                        className={`px-4 py-2 cursor-pointer border-b border-gray-100 last:border-b-0 ${
+                          index === selectedCustomerIndex 
+                            ? 'bg-fatima-green text-white' 
+                            : 'hover:bg-gray-100'
+                        }`}
+                      >
+                        <div className="font-medium">{customer.name}</div>
+                        <div className={`text-sm ${
+                          index === selectedCustomerIndex 
+                            ? 'text-green-100' 
+                            : 'text-muted-foreground'
+                        }`}>
+                          {customer.phone}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               

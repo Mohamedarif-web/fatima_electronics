@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Plus, Minus, Eye, Edit, Trash2, CreditCard, Building2, Wallet } from 'lucide-react';
 import db from '../../utils/database';
+import showToast from '../../utils/toast';
 
 const BankManagement = () => {
   const [accounts, setAccounts] = useState([]);
@@ -34,7 +35,7 @@ const BankManagement = () => {
 
   const handleAdjustBalance = async () => {
     if (!selectedAccount || !adjustmentData.amount || !adjustmentData.reason) {
-      alert('Please fill all required fields');
+      showToast.warning('Please fill all required fields');
       return;
     }
 
@@ -70,7 +71,7 @@ const BankManagement = () => {
         notes: `${adjustmentData.type === 'add' ? 'Money added' : 'Money reduced'} by admin`
       });
 
-      alert(`₹${amount.toLocaleString()} ${adjustmentData.type === 'add' ? 'added to' : 'deducted from'} ${selectedAccount.account_name} successfully!`);
+      showToast.success(`₹${amount.toLocaleString()} ${adjustmentData.type === 'add' ? 'added to' : 'deducted from'} ${selectedAccount.account_name} successfully!`);
       
       setShowAdjustmentModal(false);
       resetAdjustmentForm();
@@ -78,7 +79,7 @@ const BankManagement = () => {
       
     } catch (error) {
       console.error('Error adjusting balance:', error);
-      alert('Error adjusting balance: ' + error.message);
+      showToast.error('Error adjusting balance: ' + error.message);
     } finally {
       setLoading(false);
     }

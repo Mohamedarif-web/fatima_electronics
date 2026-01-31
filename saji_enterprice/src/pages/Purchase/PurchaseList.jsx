@@ -5,6 +5,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '.
 import { Plus, Search, Eye, Trash2, Calendar, Edit } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import db from '../../utils/database';
+import showToast from '../../utils/toast';
 
 const PurchaseList = () => {
   const navigate = useNavigate();
@@ -211,7 +212,7 @@ const PurchaseList = () => {
         const purchaseItems = await db.query('SELECT * FROM purchase_invoice_items WHERE purchase_id = ?', [purchaseId]);
         
         if (!purchase) {
-          alert('Purchase invoice not found!');
+          showToast.error('Purchase invoice not found!');
           return;
         }
         
@@ -274,11 +275,11 @@ const PurchaseList = () => {
         await db.run('DELETE FROM purchase_invoice_items WHERE purchase_id = ?', [purchaseId]);
         await db.run('DELETE FROM purchase_invoices WHERE purchase_id = ?', [purchaseId]);
         
-        alert(`Purchase bill ${purchase.bill_number} deleted successfully!\n• Returned ₹${purchase.paid_amount || 0} to bank account\n• Removed ₹${supplierBalance} from supplier balance\n• Stock quantities reversed`);
+        showToast.success(`Purchase bill ${purchase.bill_number} deleted successfully!`);
         await loadPurchases();
       } catch (error) {
         console.error('Error deleting purchase:', error);
-        alert('Error deleting purchase bill: ' + error.message);
+        showToast.error('Error deleting purchase bill: ' + error.message);
       }
     }
   };

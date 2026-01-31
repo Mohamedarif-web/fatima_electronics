@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../../components/ui/table';
 import { Plus, Edit, Trash2, Search, Users, Building, DollarSign, CreditCard } from 'lucide-react';
 import db from '../../utils/database';
+import showToast from '../../utils/toast';
 
 const PartyMaster = () => {
   const [parties, setParties] = useState([]);
@@ -110,15 +111,14 @@ const PartyMaster = () => {
       if (editingParty) {
         const updatedParty = await db.getPartyById(editingParty.party_id);
         console.log('Updated party from database:', updatedParty);
-        alert('Party updated successfully!');
-      } else {
-        alert('Party created successfully!');
       }
       
+      // Reset form and show toast notification
       resetForm();
+      showToast.success(editingParty ? 'Party updated successfully!' : 'Party created successfully!');
     } catch (error) {
       console.error('Error saving party:', error);
-      alert('Error saving party: ' + error.message);
+      showToast.error('Error saving party: ' + error.message);
     }
   };
 
@@ -148,9 +148,10 @@ const PartyMaster = () => {
       try {
         await db.deleteParty(partyId);
         await loadParties();
+        showToast.success('Party deleted successfully!');
       } catch (error) {
         console.error('Error deleting party:', error);
-        alert('Error deleting party: ' + error.message);
+        showToast.error('Error deleting party: ' + error.message);
       }
     }
   };

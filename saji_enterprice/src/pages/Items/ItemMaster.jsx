@@ -6,6 +6,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '.
 import { Plus, Edit, Trash2, Search, Database } from 'lucide-react';
 import db from '../../utils/database';
 import { addTestItems, forceAddTestItems } from '../../utils/testData';
+import showToast from '../../utils/toast';
 
 const ItemMaster = () => {
   const [searchParams] = useSearchParams();
@@ -118,7 +119,7 @@ const ItemMaster = () => {
         );
         
         if (existingItem) {
-          alert(`Item code "${formData.item_code}" already exists for product "${existingItem.product_name}". Please use a different item code.`);
+          showToast.warning(`Item code "${formData.item_code}" already exists for product "${existingItem.product_name}". Please use a different item code.`);
           return;
         }
 
@@ -131,7 +132,7 @@ const ItemMaster = () => {
           );
           
           if (dbExistingItem) {
-            alert(`Item code "${formData.item_code}" already exists in database for product "${dbExistingItem.product_name}". Please use a different item code.`);
+            showToast.warning(`Item code "${formData.item_code}" already exists in database for product "${dbExistingItem.product_name}". Please use a different item code.`);
             return;
           }
         } catch (dbError) {
@@ -148,29 +149,30 @@ const ItemMaster = () => {
       const cameFromPurchase = searchParams.get('add') === 'true' && searchParams.get('from') === 'purchase';
       
       if (cameFromSales) {
-        alert('Item saved successfully! Redirecting back to sales invoice...');
+        showToast.success('Item saved successfully! Redirecting back to sales invoice...');
         navigate('/sales/invoice');
         return;
       }
       
       if (cameFromPurchase) {
-        alert('Item saved successfully! Redirecting back to purchase invoice...');
+        showToast.success('Item saved successfully! Redirecting back to purchase invoice...');
         navigate('/purchase/bill');
         return;
       }
       
+      showToast.success(editingItem ? 'Item updated successfully!' : 'Item added successfully!');
       resetForm();
     } catch (error) {
       console.error('Error saving item:', error);
       
       // Handle specific constraint errors
       if (error.message && error.message.includes('UNIQUE constraint failed: items.item_code')) {
-        alert(`❌ Item Code Conflict!\n\nThe item code "${formData.item_code}" is already being used by another product.\n\nThis can happen when:\n• Multiple users are adding items simultaneously\n• The item was recently added by someone else\n\nPlease try:\n1. Click "Generate" to create a new unique code\n2. Or manually enter a different item code\n3. Or leave the item code empty (optional field)`);
+        showToast.error(`Item code "${formData.item_code}" is already in use. Click "Generate" for a unique code or enter a different one.`);
         
         // Refresh items to get latest data
         await loadItems();
       } else {
-        alert('Error saving item: ' + error.message);
+        showToast.error('Error saving item: ' + error.message);
       }
     }
   };
@@ -199,16 +201,17 @@ const ItemMaster = () => {
       try {
         await db.deleteItem(itemId);
         await loadItems();
+        showToast.success('Item deleted successfully!');
       } catch (error) {
         console.error('Error deleting item:', error);
-        alert('Error deleting item: ' + error.message);
+        showToast.error('Error deleting item: ' + error.message);
       }
     }
   };
 
   const generateUniqueItemCode = async () => {
     if (!formData.product_name.trim()) {
-      alert('Please enter product name first to generate item code');
+      showToast.warning('Please enter product name first to generate item code');
       return;
     }
     
@@ -301,11 +304,11 @@ const ItemMaster = () => {
       try {
         const added = await forceAddTestItems();
         if (added) {
-          alert('✅ Successfully added 10 test items!');
+          showToast.success('Successfully added 10 test items!');
           loadItems(); // Refresh the items list
         }
       } catch (error) {
-        alert('❌ Error adding test items: ' + error.message);
+        showToast.error('Error adding test items: ' + error.message);
       } finally {
         setLoading(false);
       }

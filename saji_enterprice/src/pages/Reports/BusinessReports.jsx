@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../../components/ui/table';
 import { FileText, Download, Calendar, TrendingUp, BarChart3, Users, Package, ArrowLeft, Filter } from 'lucide-react';
 import db from '../../utils/database';
+import showToast from '../../utils/toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -1455,7 +1456,7 @@ const BusinessReports = () => {
 
     } catch (error) {
       console.error('❌ Error generating full statement:', error);
-      alert('Error generating full statement: ' + error.message);
+      showToast.error('Error generating full statement: ' + error.message);
     } finally {
       setLoading(false);
     }

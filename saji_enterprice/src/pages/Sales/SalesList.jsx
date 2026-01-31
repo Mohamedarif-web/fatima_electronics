@@ -5,6 +5,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '.
 import { Plus, Search, Eye, Edit, Trash2, FileText, Calendar, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import db from '../../utils/database';
+import showToast from '../../utils/toast';
 
 const SalesList = () => {
   const navigate = useNavigate();
@@ -242,7 +243,7 @@ const SalesList = () => {
     try {
       const invoice = invoices.find(inv => inv.invoice_id === invoiceId);
       if (!invoice) {
-        alert('Invoice not found');
+        showToast.error('Invoice not found');
         return;
       }
 
@@ -300,7 +301,7 @@ const SalesList = () => {
       console.log(`✅ Payment status updated for invoice ${invoice.invoice_number} to ${newStatus}`);
     } catch (error) {
       console.error('❌ Error updating payment status:', error);
-      alert('Error updating payment status: ' + error.message);
+      showToast.error('Error updating payment status: ' + error.message);
     }
   };
 
@@ -335,7 +336,7 @@ const SalesList = () => {
         `, [invoiceId]);
         
         if (!invoice) {
-          alert('Invoice not found');
+          showToast.error('Invoice not found');
           return;
         }
         
@@ -452,15 +453,11 @@ const SalesList = () => {
         // 6. Reload invoices list
         await loadInvoices();
         
-        alert(`Invoice ${invoice.invoice_number} deleted successfully!\n\n` +
-              `✅ Stock restored for ${invoiceItems.length} items\n` +
-              `✅ Customer balance updated\n` +
-              `✅ Bank transactions reversed\n` +
-              `✅ Payment history updated`);
+        showToast.success(`Invoice ${invoice.invoice_number} deleted successfully!`);
               
       } catch (error) {
         console.error('❌ Error deleting invoice:', error);
-        alert('Error deleting invoice: ' + error.message);
+        showToast.error('Error deleting invoice: ' + error.message);
       }
     }
   };
@@ -522,7 +519,7 @@ const SalesList = () => {
   // Handle return invoice selection
   const handleReturnSelection = () => {
     if (!selectedReturnInvoice) {
-      alert('Please select an invoice for return');
+      showToast.warning('Please select an invoice for return');
       return;
     }
     setShowReturnModal(false);

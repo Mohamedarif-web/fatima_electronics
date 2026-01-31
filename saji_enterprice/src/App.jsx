@@ -37,6 +37,7 @@ import BankCash from './pages/Bank/BankCash'
 import BusinessReports from './pages/Reports/BusinessReports'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import './App.css'
+import { Toaster } from 'react-hot-toast'
 
 function AppRoutes() {
   const { isAuthenticated } = useAuth()
@@ -82,6 +83,18 @@ function App() {
   return (
     <AuthProvider>
       <Router>
+        <Toaster 
+          position="top-right"
+          reverseOrder={false}
+          gutter={8}
+          toastOptions={{
+            duration: 3000,
+            style: {
+              fontSize: '14px',
+              maxWidth: '500px',
+            },
+          }}
+        />
         <AppRoutes />
       </Router>
     </AuthProvider>
