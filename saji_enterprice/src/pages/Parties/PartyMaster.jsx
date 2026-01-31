@@ -535,19 +535,56 @@ const PartyMaster = () => {
                 </button>
                 
                 <div className="flex space-x-1">
-                  {[...Array(totalPages)].map((_, i) => (
-                    <button
-                      key={i + 1}
-                      onClick={() => paginate(i + 1)}
-                      className={`px-3 py-2 text-sm font-medium rounded-md ${
-                        currentPage === i + 1
-                          ? 'bg-fatima-green text-white'
-                          : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
+                  {/* First page */}
+                  {currentPage > 3 && (
+                    <>
+                      <button
+                        onClick={() => paginate(1)}
+                        className="px-3 py-2 text-sm font-medium rounded-md text-gray-500 bg-white border border-gray-300 hover:bg-gray-50"
+                      >
+                        1
+                      </button>
+                      {currentPage > 4 && (
+                        <span className="px-2 py-2 text-gray-500">...</span>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Pages around current page */}
+                  {[...Array(totalPages)].map((_, i) => {
+                    const pageNum = i + 1;
+                    if (pageNum >= currentPage - 2 && pageNum <= currentPage + 2) {
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => paginate(pageNum)}
+                          className={`px-3 py-2 text-sm font-medium rounded-md ${
+                            currentPage === pageNum
+                              ? 'bg-fatima-green text-white'
+                              : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    }
+                    return null;
+                  })}
+                  
+                  {/* Last page */}
+                  {currentPage < totalPages - 2 && (
+                    <>
+                      {currentPage < totalPages - 3 && (
+                        <span className="px-2 py-2 text-gray-500">...</span>
+                      )}
+                      <button
+                        onClick={() => paginate(totalPages)}
+                        className="px-3 py-2 text-sm font-medium rounded-md text-gray-500 bg-white border border-gray-300 hover:bg-gray-50"
+                      >
+                        {totalPages}
+                      </button>
+                    </>
+                  )}
                 </div>
                 
                 <button

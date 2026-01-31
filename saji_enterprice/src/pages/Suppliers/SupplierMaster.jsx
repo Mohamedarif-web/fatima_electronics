@@ -13,6 +13,8 @@ const SupplierMaster = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -175,6 +177,18 @@ const SupplierMaster = () => {
     supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (supplier.phone && supplier.phone.includes(searchTerm))
   );
+
+  // Pagination
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentSuppliers = filteredSuppliers.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredSuppliers.length / itemsPerPage);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  const nextPage = () => { if (currentPage < totalPages) setCurrentPage(currentPage + 1); };
+  const prevPage = () => { if (currentPage > 1) setCurrentPage(currentPage - 1); };
+
+  useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
   if (showForm) {
     return (
@@ -345,9 +359,9 @@ const SupplierMaster = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredSuppliers.map((supplier, index) => (
+              {currentSuppliers.map((supplier, index) => (
                 <TableRow key={supplier.supplier_id}>
-                  <TableCell className="font-medium">{index + 1}</TableCell>
+                  <TableCell className="font-medium">{indexOfFirstItem + index + 1}</TableCell>
                   <TableCell className="font-medium">{supplier.name}</TableCell>
                   <TableCell>{supplier.phone || '-'}</TableCell>
                   <TableCell className="max-w-xs truncate">{supplier.address || '-'}</TableCell>
@@ -379,7 +393,7 @@ const SupplierMaster = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredSuppliers.length === 0 && (
+              {currentSuppliers.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No suppliers found
@@ -388,6 +402,24 @@ const SupplierMaster = () => {
               )}
             </TableBody>
           </Table>
+
+          {/* Pagination */}
+          {filteredSuppliers.length > itemsPerPage && (
+            <div className="flex items-center justify-between mt-6">
+              <div className="text-sm text-gray-600">
+                Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredSuppliers.length)} of {filteredSuppliers.length} suppliers
+              </div>
+              <div className="flex items-center space-x-2">
+                <button onClick={prevPage} disabled={currentPage === 1} className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
+                <div className="flex space-x-1">
+                  {currentPage > 3 && (<><button onClick={() => paginate(1)} className="px-3 py-2 text-sm font-medium rounded-md text-gray-500 bg-white border border-gray-300 hover:bg-gray-50">1</button>{currentPage > 4 && <span className="px-2 py-2 text-gray-500">...</span>}</>)}
+                  {[...Array(totalPages)].map((_, i) => { const pageNum = i + 1; if (pageNum >= currentPage - 2 && pageNum <= currentPage + 2) { return (<button key={pageNum} onClick={() => paginate(pageNum)} className={`px-3 py-2 text-sm font-medium rounded-md ${currentPage === pageNum ? 'bg-fatima-green text-white' : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'}`}>{pageNum}</button>); } return null; })}
+                  {currentPage < totalPages - 2 && (<>{currentPage < totalPages - 3 && <span className="px-2 py-2 text-gray-500">...</span>}<button onClick={() => paginate(totalPages)} className="px-3 py-2 text-sm font-medium rounded-md text-gray-500 bg-white border border-gray-300 hover:bg-gray-50">{totalPages}</button></>)}
+                </div>
+                <button onClick={nextPage} disabled={currentPage === totalPages} className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

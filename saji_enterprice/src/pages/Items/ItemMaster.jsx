@@ -3,7 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../../components/ui/table';
-import { Plus, Edit, Trash2, Search, Database } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Database, Upload } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import db from '../../utils/database';
 import { addTestItems, forceAddTestItems } from '../../utils/testData';
 import showToast from '../../utils/toast';
@@ -312,6 +313,105 @@ const ItemMaster = () => {
       } finally {
         setLoading(false);
       }
+    }
+  };
+
+  const handleImportExcel = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      setLoading(true);
+      
+      // Read the Excel file
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      
+      // Get the first sheet
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      
+      console.log('📊 Excel data loaded:', jsonData.length, 'rows');
+      
+      if (jsonData.length === 0) {
+        showToast.error('Excel file is empty!');
+        return;
+      }
+      
+      // Find DESCRIPTION column
+      const firstRow = jsonData[0];
+      const columnNames = Object.keys(firstRow);
+      const descriptionColumn = columnNames.find(col => 
+        col.trim().toLowerCase().includes('description')
+      );
+      
+      if (!descriptionColumn) {
+        showToast.error(`Could not find DESCRIPTION column. Available: ${columnNames.join(', ')}`);
+        return;
+      }
+      
+      console.log('✅ Using column:', descriptionColumn);
+      
+      let importedCount = 0;
+      let skippedCount = 0;
+      
+      // Process each row
+      for (let i = 0; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        const productName = row[descriptionColumn]?.toString().trim();
+        
+        if (!productName || productName === '') {
+          skippedCount++;
+          continue;
+        }
+        
+        // Auto-generate item code
+        const baseCode = productName
+          .substring(0, 3)
+          .toUpperCase()
+          .replace(/[^A-Z]/g, '') || 'ITM';
+        const itemCode = `${baseCode}${String(Date.now() + i).slice(-4)}`;
+        
+        // Save item
+        const itemData = {
+          product_name: productName,
+          item_code: itemCode,
+          unit: 'PCS',
+          sale_price: 0,
+          sale_price_type: 'without_tax',
+          purchase_price: 0,
+          purchase_price_type: 'without_tax',
+          gst_rate: 0,
+          opening_stock: 0,
+          current_stock: 0,
+          min_stock: 0
+        };
+        
+        try {
+          await db.saveItem(itemData);
+          importedCount++;
+          
+          // Show progress every 100 items
+          if (importedCount % 100 === 0) {
+            showToast.info(`Imported ${importedCount} items...`);
+          }
+        } catch (error) {
+          console.warn(`Skipping row ${i + 1}:`, error.message);
+          skippedCount++;
+        }
+      }
+      
+      await loadItems(); // Refresh the list
+      showToast.success(`✅ Import completed! Added ${importedCount} items, Skipped ${skippedCount}`);
+      
+    } catch (error) {
+      console.error('Error importing Excel:', error);
+      showToast.error('Error importing Excel: ' + error.message);
+    } finally {
+      setLoading(false);
+      // Reset file input
+      event.target.value = '';
     }
   };
 
@@ -638,10 +738,24 @@ const ItemMaster = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Item Master</h1>
-        <Button onClick={() => setShowForm(true)} className="bg-fatima-green hover:bg-fatima-green/90">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Item
-        </Button>
+        <div className="flex gap-2">
+          <label className="cursor-pointer">
+            <input
+              type="file"
+              accept=".xlsx, .xls"
+              onChange={handleImportExcel}
+              className="hidden"
+            />
+            <div className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md border-2 border-blue-500 text-blue-600 hover:bg-blue-50 transition-colors">
+              <Upload className="w-4 h-4 mr-2" />
+              Import from Excel
+            </div>
+          </label>
+          <Button onClick={() => setShowForm(true)} className="bg-fatima-green hover:bg-fatima-green/90">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Item
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -753,19 +867,57 @@ const ItemMaster = () => {
                 </button>
                 
                 <div className="flex space-x-1">
-                  {[...Array(totalPages)].map((_, i) => (
-                    <button
-                      key={i + 1}
-                      onClick={() => paginate(i + 1)}
-                      className={`px-3 py-2 text-sm font-medium rounded-md ${
-                        currentPage === i + 1
-                          ? 'bg-fatima-green text-white'
-                          : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
+                  {/* First page */}
+                  {currentPage > 3 && (
+                    <>
+                      <button
+                        onClick={() => paginate(1)}
+                        className="px-3 py-2 text-sm font-medium rounded-md text-gray-500 bg-white border border-gray-300 hover:bg-gray-50"
+                      >
+                        1
+                      </button>
+                      {currentPage > 4 && (
+                        <span className="px-2 py-2 text-gray-500">...</span>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Pages around current page */}
+                  {[...Array(totalPages)].map((_, i) => {
+                    const pageNum = i + 1;
+                    // Show current page and 2 pages on each side
+                    if (pageNum >= currentPage - 2 && pageNum <= currentPage + 2) {
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => paginate(pageNum)}
+                          className={`px-3 py-2 text-sm font-medium rounded-md ${
+                            currentPage === pageNum
+                              ? 'bg-fatima-green text-white'
+                              : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    }
+                    return null;
+                  })}
+                  
+                  {/* Last page */}
+                  {currentPage < totalPages - 2 && (
+                    <>
+                      {currentPage < totalPages - 3 && (
+                        <span className="px-2 py-2 text-gray-500">...</span>
+                      )}
+                      <button
+                        onClick={() => paginate(totalPages)}
+                        className="px-3 py-2 text-sm font-medium rounded-md text-gray-500 bg-white border border-gray-300 hover:bg-gray-50"
+                      >
+                        {totalPages}
+                      </button>
+                    </>
+                  )}
                 </div>
                 
                 <button

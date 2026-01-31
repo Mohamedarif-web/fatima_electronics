@@ -16,6 +16,8 @@ const ExpenseTracker = () => {
   const [editingExpense, setEditingExpense] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   const [dateFilter, setDateFilter] = useState({
     from: '',
     to: ''
@@ -383,6 +385,18 @@ const ExpenseTracker = () => {
     expense.category_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     expense.vendor_name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Pagination
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentExpenses = filteredExpenses.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredExpenses.length / itemsPerPage);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  const nextPage = () => { if (currentPage < totalPages) setCurrentPage(currentPage + 1); };
+  const prevPage = () => { if (currentPage > 1) setCurrentPage(currentPage - 1); };
+
+  useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
   const getTotalStats = () => {
     const today = new Date().toISOString().split('T')[0];
@@ -841,9 +855,9 @@ const ExpenseTracker = () => {
                   </TableRow>
                 </TableHeader>
               <TableBody>
-                {filteredExpenses.map((expense, index) => (
+                {currentExpenses.map((expense, index) => (
                   <TableRow key={expense.expense_id}>
-                    <TableCell className="font-medium">{index + 1}</TableCell>
+                    <TableCell className="font-medium">{indexOfFirstItem + index + 1}</TableCell>
                     <TableCell className="font-medium">{expense.expense_number}</TableCell>
                     <TableCell>{new Date(expense.expense_date).toLocaleDateString()}</TableCell>
                     <TableCell>
@@ -884,7 +898,7 @@ const ExpenseTracker = () => {
                     </TableCell>
                   </TableRow>
                 ))}
-                {filteredExpenses.length === 0 && (
+                {currentExpenses.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                       No expenses found
@@ -893,6 +907,22 @@ const ExpenseTracker = () => {
                 )}
               </TableBody>
               </Table>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {filteredExpenses.length > itemsPerPage && (
+            <div className="flex items-center justify-between mt-6">
+              <div className="text-sm text-gray-600">Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredExpenses.length)} of {filteredExpenses.length} expenses</div>
+              <div className="flex items-center space-x-2">
+                <button onClick={prevPage} disabled={currentPage === 1} className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
+                <div className="flex space-x-1">
+                  {currentPage > 3 && (<><button onClick={() => paginate(1)} className="px-3 py-2 text-sm font-medium rounded-md text-gray-500 bg-white border border-gray-300 hover:bg-gray-50">1</button>{currentPage > 4 && <span className="px-2 py-2 text-gray-500">...</span>}</>)}
+                  {[...Array(totalPages)].map((_, i) => { const pageNum = i + 1; if (pageNum >= currentPage - 2 && pageNum <= currentPage + 2) { return (<button key={pageNum} onClick={() => paginate(pageNum)} className={`px-3 py-2 text-sm font-medium rounded-md ${currentPage === pageNum ? 'bg-fatima-green text-white' : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'}`}>{pageNum}</button>); } return null; })}
+                  {currentPage < totalPages - 2 && (<>{currentPage < totalPages - 3 && <span className="px-2 py-2 text-gray-500">...</span>}<button onClick={() => paginate(totalPages)} className="px-3 py-2 text-sm font-medium rounded-md text-gray-500 bg-white border border-gray-300 hover:bg-gray-50">{totalPages}</button></>)}
+                </div>
+                <button onClick={nextPage} disabled={currentPage === totalPages} className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+              </div>
             </div>
           )}
         </CardContent>
