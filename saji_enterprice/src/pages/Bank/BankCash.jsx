@@ -5,6 +5,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '.
 import { Plus, Search, Save, Edit, Trash2, Wallet, Building2, Eye, Minus } from 'lucide-react';
 import db from '../../utils/database';
 import showToast from '../../utils/toast';
+import ConfirmDialog from '../../components/ui/confirm-dialog';
 
 const BankCash = () => {
   const [accounts, setAccounts] = useState([]);
@@ -19,6 +20,11 @@ const BankCash = () => {
   const [accountHistory, setAccountHistory] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [accountsPerPage] = useState(10);
+  
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [accountToDelete, setAccountToDelete] = useState(null);
+  
   const [adjustmentData, setAdjustmentData] = useState({
     type: 'add', // 'add' or 'reduce'
     amount: '',
@@ -362,16 +368,23 @@ const BankCash = () => {
     setShowForm(true);
   };
 
-  const deleteAccount = async (accountId) => {
-    if (window.confirm('Are you sure you want to delete this account? This action cannot be undone.')) {
-      try {
-        await db.run('UPDATE accounts SET is_deleted = 1 WHERE account_id = ?', [accountId]);
-        await loadAccounts();
-        showToast.success('Account deleted successfully');
-      } catch (error) {
-        console.error('Error deleting account:', error);
-        showToast.error('Error deleting account: ' + error.message);
-      }
+  const handleDeleteClick = (accountId) => {
+    setAccountToDelete(accountId);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!accountToDelete) return;
+    
+    try {
+      await db.run('UPDATE accounts SET is_deleted = 1 WHERE account_id = ?', [accountToDelete]);
+      await loadAccounts();
+      showToast.success('Account deleted successfully');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      showToast.error('Error deleting account: ' + error.message);
+    } finally {
+      setAccountToDelete(null);
     }
   };
 
@@ -1085,7 +1098,7 @@ const BankCash = () => {
                       Edit
                     </button>
                     <button
-                      onClick={() => deleteAccount(account.account_id)}
+                      onClick={() => handleDeleteClick(account.account_id)}
                       className="flex-1 p-1.5 rounded text-white text-xs font-medium flex items-center justify-center gap-1 bg-red-600 hover:bg-red-700 transition-colors"
                       title="Delete Account"
                     >
@@ -1356,6 +1369,23 @@ const BankCash = () => {
           </div>
         </div>
       )}
+      
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+        title="Delete Account"
+        message="Are you sure you want to delete this account?"
+        confirmText="Delete Account"
+        cancelText="Cancel"
+        variant="danger"
+        details={[
+          'Account will be marked as deleted',
+          'Transaction history will be preserved',
+          'This action cannot be undone'
+        ]}
+      />
     </div>
   );
 };

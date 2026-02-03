@@ -5,6 +5,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '.
 import { Plus, Edit, Trash2, Search, Users, Building, DollarSign, CreditCard } from 'lucide-react';
 import db from '../../utils/database';
 import showToast from '../../utils/toast';
+import ConfirmDialog from '../../components/ui/confirm-dialog';
 
 const PartyMaster = () => {
   const [parties, setParties] = useState([]);
@@ -14,6 +15,10 @@ const PartyMaster = () => {
   const [editingParty, setEditingParty] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [partiesPerPage] = useState(10);
+  
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [partyToDelete, setPartyToDelete] = useState(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -143,16 +148,23 @@ const PartyMaster = () => {
     setShowForm(true);
   };
 
-  const handleDelete = async (partyId) => {
-    if (window.confirm('Are you sure you want to delete this party?')) {
-      try {
-        await db.deleteParty(partyId);
-        await loadParties();
-        showToast.success('Party deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting party:', error);
-        showToast.error('Error deleting party: ' + error.message);
-      }
+  const handleDeleteClick = (partyId) => {
+    setPartyToDelete(partyId);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!partyToDelete) return;
+    
+    try {
+      await db.deleteParty(partyToDelete);
+      await loadParties();
+      showToast.success('Party deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting party:', error);
+      showToast.error('Error deleting party: ' + error.message);
+    } finally {
+      setPartyToDelete(null);
     }
   };
 
@@ -494,7 +506,7 @@ const PartyMaster = () => {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(party.party_id)}
+                          onClick={() => handleDeleteClick(party.party_id)}
                           className="p-2 rounded-md transition-colors flex items-center justify-center"
                           style={{backgroundColor: '#ef4444', color: 'white'}}
                           onMouseEnter={(e) => e.target.style.backgroundColor = '#dc2626'}
@@ -599,6 +611,23 @@ const PartyMaster = () => {
           )}
         </CardContent>
       </Card>
+      
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+        title="Delete Party"
+        message="Are you sure you want to delete this party?"
+        confirmText="Delete Party"
+        cancelText="Cancel"
+        variant="danger"
+        details={[
+          'All party information will be removed',
+          'Transaction history will be preserved',
+          'Outstanding balance records will remain'
+        ]}
+      />
     </div>
   );
 };

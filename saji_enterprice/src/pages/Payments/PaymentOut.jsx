@@ -6,6 +6,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '.
 import { Plus, Search, Save, Edit, Trash2 } from 'lucide-react';
 import db from '../../utils/database';
 import showToast from '../../utils/toast';
+import ConfirmDialog from '../../components/ui/confirm-dialog';
 
 const PaymentOut = () => {
   const [searchParams] = useSearchParams();
@@ -36,6 +37,8 @@ const PaymentOut = () => {
   // Supplier search
   const [supplierSearch, setSupplierSearch] = useState('');
   const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState(null);
 
   useEffect(() => {
     loadSuppliers();
@@ -240,11 +243,14 @@ const PaymentOut = () => {
     setShowForm(true);
   };
 
-  // 🔥 ADD: Delete payment function
-  const deletePayment = async (payment) => {
-    if (!confirm(`Are you sure you want to delete payment ${payment.payment_number}? This action cannot be undone.`)) {
-      return;
-    }
+  const handleDeleteClick = (payment) => {
+    setPaymentToDelete(payment);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!paymentToDelete) return;
+    const payment = paymentToDelete;
     
     try {
       setLoading(true);
@@ -288,6 +294,7 @@ const PaymentOut = () => {
       showToast.error('Error deleting payment: ' + error.message);
     } finally {
       setLoading(false);
+      setPaymentToDelete(null);
     }
   };
 
@@ -797,7 +804,7 @@ const PaymentOut = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => deletePayment(payment)}
+                          onClick={() => handleDeleteClick(payment)}
                           className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -818,6 +825,17 @@ const PaymentOut = () => {
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+        title="Delete Payment"
+        message={`Are you sure you want to delete payment ${paymentToDelete?.payment_number}?`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        details={['Payment will be removed', 'Account balance will be restored', 'This action cannot be undone']}
+      />
     </div>
   );
 };

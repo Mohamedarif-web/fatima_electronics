@@ -87,6 +87,7 @@ class Database {
             // Check if return_quantity column exists in sales_invoice_items
             const tableInfo = await this.all(`PRAGMA table_info(sales_invoice_items)`);
             const hasReturnQuantity = tableInfo.some(column => column.name === 'return_quantity');
+            const hasPriceType = tableInfo.some(column => column.name === 'price_type');
             
             if (!hasReturnQuantity) {
                 console.log('Adding return_quantity column to sales_invoice_items...');
@@ -95,6 +96,15 @@ class Database {
                     ADD COLUMN return_quantity DECIMAL(10,3) DEFAULT 0
                 `);
                 console.log('✅ Added return_quantity column successfully');
+            }
+            
+            if (!hasPriceType) {
+                console.log('Adding price_type column to sales_invoice_items...');
+                await this.run(`
+                    ALTER TABLE sales_invoice_items 
+                    ADD COLUMN price_type TEXT CHECK(price_type IN ('with_tax', 'without_tax')) DEFAULT 'without_tax'
+                `);
+                console.log('✅ Added price_type column successfully');
             }
 
             // Check if payment_details table exists
@@ -184,6 +194,75 @@ class Database {
                 }
 
                 console.log('✅ Created expense_categories table with default categories');
+            }
+
+            // Migration: Convert sale_price to dealer_price and customer_price
+            const itemsInfo = await this.all(`PRAGMA table_info(items)`);
+            const hasSalePrice = itemsInfo.some(column => column.name === 'sale_price');
+            const hasDealerPrice = itemsInfo.some(column => column.name === 'dealer_price');
+            const hasCustomerPrice = itemsInfo.some(column => column.name === 'customer_price');
+            
+            if (hasSalePrice && !hasDealerPrice && !hasCustomerPrice) {
+                console.log('🔄 Migrating items table from sale_price to dealer_price/customer_price...');
+                
+                // Add new columns
+                await this.run(`ALTER TABLE items ADD COLUMN dealer_price DECIMAL(10,2) NOT NULL DEFAULT 0`);
+                await this.run(`ALTER TABLE items ADD COLUMN dealer_price_type TEXT CHECK(dealer_price_type IN ('with_tax', 'without_tax')) DEFAULT 'without_tax'`);
+                await this.run(`ALTER TABLE items ADD COLUMN customer_price DECIMAL(10,2) NOT NULL DEFAULT 0`);
+                await this.run(`ALTER TABLE items ADD COLUMN customer_price_type TEXT CHECK(customer_price_type IN ('with_tax', 'without_tax')) DEFAULT 'without_tax'`);
+                
+                // Copy sale_price to both new price fields
+                await this.run(`UPDATE items SET dealer_price = sale_price, customer_price = sale_price`);
+                
+                // Copy sale_price_type to both new price type fields
+                await this.run(`UPDATE items SET dealer_price_type = COALESCE(sale_price_type, 'without_tax'), customer_price_type = COALESCE(sale_price_type, 'without_tax')`);
+                
+                // Create new table without sale_price columns
+                await this.run(`
+                    CREATE TABLE items_new (
+                        item_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        product_name TEXT NOT NULL,
+                        item_code TEXT UNIQUE,
+                        barcode TEXT,
+                        hsn_code TEXT,
+                        unit TEXT DEFAULT 'PCS',
+                        dealer_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+                        dealer_price_type TEXT CHECK(dealer_price_type IN ('with_tax', 'without_tax')) DEFAULT 'without_tax',
+                        customer_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+                        customer_price_type TEXT CHECK(customer_price_type IN ('with_tax', 'without_tax')) DEFAULT 'without_tax',
+                        purchase_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+                        purchase_price_type TEXT CHECK(purchase_price_type IN ('with_tax', 'without_tax')) DEFAULT 'without_tax',
+                        gst_rate DECIMAL(5,2) DEFAULT 0,
+                        opening_stock DECIMAL(10,3) DEFAULT 0,
+                        current_stock DECIMAL(10,3) DEFAULT 0,
+                        min_stock DECIMAL(10,3) DEFAULT 0,
+                        is_active BOOLEAN DEFAULT 1,
+                        is_deleted BOOLEAN DEFAULT 0,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                `);
+                
+                // Copy data to new table
+                await this.run(`
+                    INSERT INTO items_new 
+                    SELECT 
+                        item_id, product_name, item_code, barcode, hsn_code, unit,
+                        dealer_price, dealer_price_type, customer_price, customer_price_type,
+                        purchase_price, purchase_price_type, gst_rate,
+                        opening_stock, current_stock, min_stock,
+                        is_active, is_deleted, created_at, updated_at
+                    FROM items
+                `);
+                
+                // Drop old table and rename new table
+                await this.run(`DROP TABLE items`);
+                await this.run(`ALTER TABLE items_new RENAME TO items`);
+                
+                console.log('✅ Successfully migrated to dual pricing (dealer_price & customer_price)');
+            } else if (!hasDealerPrice && !hasSalePrice) {
+                // Fresh installation - no migration needed
+                console.log('✅ Items table already has dual pricing structure');
             }
 
             // Check if expenses table needs migration for category_id

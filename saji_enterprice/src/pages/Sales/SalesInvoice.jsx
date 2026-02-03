@@ -46,6 +46,37 @@ const SalesInvoice = () => {
   const [showItemDropdown, setShowItemDropdown] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedItemIndex, setSelectedItemIndex] = useState(-1);
+  
+  // Price type selection (dealer or customer)
+  const [priceType, setPriceType] = useState('customer');
+
+  // Update existing items when price type changes
+  useEffect(() => {
+    if (invoiceItems.length > 0 && items.length > 0) {
+      setInvoiceItems(prevItems => 
+        prevItems.map(invoiceItem => {
+          // Find the full item details
+          const fullItem = items.find(item => item.item_id === invoiceItem.item_id);
+          if (!fullItem) return invoiceItem;
+          
+          // Get the appropriate price and price type based on selection
+          const selectedPrice = priceType === 'dealer' 
+            ? (fullItem.dealer_price || 0) 
+            : (fullItem.customer_price || 0);
+          const selectedPriceType = priceType === 'dealer' 
+            ? (fullItem.dealer_price_type || 'without_tax') 
+            : (fullItem.customer_price_type || 'without_tax');
+          
+          // Update the item with new price and price type
+          return {
+            ...invoiceItem,
+            rate: selectedPrice,
+            price_type: selectedPriceType
+          };
+        })
+      );
+    }
+  }, [priceType, items]);
 
   useEffect(() => {
     loadCustomers();
@@ -236,6 +267,7 @@ const SalesInvoice = () => {
                 quantity: item.quantity,
                 original_quantity: item.quantity,
                 rate: item.rate,
+                price_type: item.price_type || 'without_tax', // Load price_type from database
                 discount_percent: item.discount_percent || 0,
                 tax_rate: item.tax_rate || 0,
                 current_stock: product.current_stock || 0,
@@ -386,6 +418,7 @@ const SalesInvoice = () => {
                 quantity: item.quantity,
                 original_quantity: item.quantity, // Store original for return calculations
                 rate: item.rate,
+                price_type: item.price_type || 'without_tax', // Load price_type from database
                 discount_percent: item.discount_percent || 0,
                 tax_rate: item.tax_rate || product?.gst_rate || 0,
                 current_stock: product.current_stock, // Show actual current stock (after this sale)
@@ -476,12 +509,16 @@ const SalesInvoice = () => {
         )
       );
     } else {
-      // Add new item
+      // Add new item - use price based on selected price type
+      const selectedPrice = priceType === 'dealer' ? (item.dealer_price || 0) : (item.customer_price || 0);
+      const selectedPriceType = priceType === 'dealer' ? (item.dealer_price_type || 'without_tax') : (item.customer_price_type || 'without_tax');
+      
       const newItem = {
         item_id: item.item_id,
         product_name: item.product_name,
         quantity: 1,
-        rate: item.sale_price,
+        rate: selectedPrice,
+        price_type: selectedPriceType, // Store whether price includes tax
         discount_percent: 0,
         tax_rate: item.gst_rate,
         available_stock: item.current_stock
@@ -614,17 +651,17 @@ const SalesInvoice = () => {
     const baseAmount = effectiveQuantity * item.rate;
     const discountAmount = baseAmount * (item.discount_percent / 100);
     
-    // Get the product details to check sale_price_type
-    const product = items.find(p => p.item_id === item.item_id);
-    const salePriceType = product?.sale_price_type || 'without_tax';
-    
+    // Check if price includes tax or not
+    const priceType = item.price_type || 'without_tax';
     let taxableAmount, taxAmount, totalAmount;
     
-    if (salePriceType === 'with_tax') {
-      // Price already includes tax - NO additional GST to be applied
-      taxableAmount = baseAmount - discountAmount;
-      taxAmount = 0; // No additional tax since price already includes it
-      totalAmount = taxableAmount;
+    if (priceType === 'with_tax') {
+      // Price already includes tax - extract tax from the price
+      const amountAfterDiscount = baseAmount - discountAmount;
+      totalAmount = amountAfterDiscount;
+      // Calculate tax component: total / (1 + tax_rate/100) gives taxable, rest is tax
+      taxableAmount = totalAmount / (1 + (item.tax_rate / 100));
+      taxAmount = totalAmount - taxableAmount;
     } else {
       // Price excludes tax - ADD GST to the discounted amount
       taxableAmount = baseAmount - discountAmount;
@@ -637,8 +674,7 @@ const SalesInvoice = () => {
       discountAmount,
       taxableAmount,
       taxAmount,
-      totalAmount,
-      salePriceType
+      totalAmount
     };
   };
 
@@ -664,9 +700,24 @@ const SalesInvoice = () => {
         const returnQuantity = item.return_quantity || 0;
         const returnBaseAmount = returnQuantity * item.rate;
         const returnDiscAmount = returnBaseAmount * (item.discount_percent / 100);
-        const returnTaxableAmount = returnBaseAmount - returnDiscAmount;
-        const returnTaxAmt = returnTaxableAmount * (item.tax_rate / 100);
-        const returnTotalAmount = returnTaxableAmount + returnTaxAmt;
+        
+        // Check if price includes tax or not (same logic as main calculation)
+        const priceType = item.price_type || 'without_tax';
+        let returnTaxableAmount, returnTaxAmt, returnTotalAmount;
+        
+        if (priceType === 'with_tax') {
+          // Price already includes tax - extract tax from the price
+          const amountAfterDiscount = returnBaseAmount - returnDiscAmount;
+          returnTotalAmount = amountAfterDiscount;
+          // Calculate tax component: total / (1 + tax_rate/100) gives taxable, rest is tax
+          returnTaxableAmount = returnTotalAmount / (1 + (item.tax_rate / 100));
+          returnTaxAmt = returnTotalAmount - returnTaxableAmount;
+        } else {
+          // Price excludes tax - ADD GST to the discounted amount
+          returnTaxableAmount = returnBaseAmount - returnDiscAmount;
+          returnTaxAmt = returnTaxableAmount * (item.tax_rate / 100);
+          returnTotalAmount = returnTaxableAmount + returnTaxAmt;
+        }
         
         returnSubtotal += returnBaseAmount;
         returnDiscountAmount += returnDiscAmount;
@@ -753,6 +804,7 @@ const SalesInvoice = () => {
           item_id: item.item_id,
           quantity: item.quantity,
           rate: item.rate,
+          price_type: item.price_type || 'without_tax', // Include price_type
           discount_percent: item.discount_percent,
           discount_amount: calc.discountAmount,
           taxable_amount: calc.taxableAmount,
@@ -842,12 +894,12 @@ const SalesInvoice = () => {
         
         await db.run(`
           INSERT INTO sales_invoice_items (
-            invoice_id, item_id, quantity, rate, discount_percent, discount_amount,
+            invoice_id, item_id, quantity, rate, price_type, discount_percent, discount_amount,
             taxable_amount, tax_rate, tax_amount, total_amount, return_quantity
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
           savedInvoice.invoice_id, item.item_id, item.quantity, item.rate,
-          item.discount_percent, item.discount_amount, item.taxable_amount,
+          item.price_type || 'without_tax', item.discount_percent, item.discount_amount, item.taxable_amount,
           item.tax_rate, item.tax_amount, item.total_amount, returnQty
         ]);
 
@@ -1437,6 +1489,22 @@ const SalesInvoice = () => {
           <div className="flex items-center justify-between">
             <CardTitle>Invoice Items</CardTitle>
             <div className="flex gap-3 items-center">
+              {/* Price Type Selection - Hide in return mode */}
+              {!editingInvoice?.isReturnMode && (
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-semibold text-gray-700">Price Type:</label>
+                  <select
+                    value={priceType}
+                    onChange={(e) => setPriceType(e.target.value)}
+                    className="px-3 py-2 rounded-md border border-gray-300 bg-white font-medium"
+                    style={{border: '1px solid #333'}}
+                  >
+                    <option value="customer">Customer</option>
+                    <option value="dealer">Dealer</option>
+                  </select>
+                </div>
+              )}
+              
               {/* Search Input and Add Item Button */}
               <div className="flex gap-3 items-center">
                 <div className="relative">
@@ -1475,7 +1543,7 @@ const SalesInvoice = () => {
                         >
                           <div className="font-medium">{item.product_name}</div>
                           <div className="text-sm text-muted-foreground">
-                            Stock: {item.current_stock} | Price: ₹{item.sale_price}
+                            Stock: {item.current_stock} | Dealer: ₹{item.dealer_price || 0} | Customer: ₹{item.customer_price || 0}
                           </div>
                         </div>
                       ))}
@@ -1606,28 +1674,15 @@ const SalesInvoice = () => {
                         />
                       </TableCell>
                       <TableCell className="text-center">
-                        {(() => {
-                          const product = items.find(p => p.item_id === item.item_id);
-                          const salePriceType = product?.sale_price_type || 'without_tax';
-                          
-                          if (salePriceType === 'with_tax') {
-                            return (
-                              <div className="text-center">
-                                <span className="text-gray-500 text-xs">Tax Included</span>
-                                <br />
-                                <span className="text-xs text-gray-400">({item.tax_rate}%)</span>
-                              </div>
-                            );
-                          } else {
-                            return (
-                              <div className="text-center">
-                                <span className="text-green-600 font-medium text-sm">{item.tax_rate}%</span>
-                                <br />
-                                <span className="text-xs text-green-600">Applied</span>
-                              </div>
-                            );
-                          }
-                        })()}
+                        <div className="text-center">
+                          <span className="text-green-600 font-medium text-sm">{item.tax_rate}%</span>
+                          <br />
+                          {item.price_type === 'with_tax' ? (
+                            <span className="text-xs text-orange-600">Inclusive</span>
+                          ) : (
+                            <span className="text-xs text-green-600">Applied</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div>

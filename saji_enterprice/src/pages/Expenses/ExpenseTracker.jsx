@@ -5,6 +5,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '.
 import { Plus, Search, Save, Edit, Trash2, Calendar, Settings, X } from 'lucide-react';
 import db from '../../utils/database';
 import showToast from '../../utils/toast';
+import ConfirmDialog from '../../components/ui/confirm-dialog';
 
 const ExpenseTracker = () => {
   const [expenses, setExpenses] = useState([]);
@@ -18,6 +19,10 @@ const ExpenseTracker = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [showDeleteExpenseConfirm, setShowDeleteExpenseConfirm] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState(null);
+  const [showDeleteCategoryConfirm, setShowDeleteCategoryConfirm] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
   const [dateFilter, setDateFilter] = useState({
     from: '',
     to: ''
@@ -223,13 +228,20 @@ const ExpenseTracker = () => {
     setShowForm(true);
   };
 
-  const deleteExpense = async (expense) => {
-    if (window.confirm('Are you sure you want to delete this expense? This will restore the amount to the account balance.')) {
-      try {
-        setLoading(true);
-        
-        // Start transaction
-        await db.run('BEGIN TRANSACTION');
+  const handleDeleteExpenseClick = (expense) => {
+    setExpenseToDelete(expense);
+    setShowDeleteExpenseConfirm(true);
+  };
+
+  const confirmDeleteExpense = async () => {
+    if (!expenseToDelete) return;
+    const expense = expenseToDelete;
+    
+    try {
+      setLoading(true);
+      
+      // Start transaction
+      await db.run('BEGIN TRANSACTION');
         
         // Mark expense as deleted
         await db.run('UPDATE expenses SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE expense_id = ?', [expense.expense_id]);
@@ -246,14 +258,14 @@ const ExpenseTracker = () => {
         
         await loadExpenses();
         showToast.success('Expense deleted successfully and amount restored to account');
-      } catch (error) {
-        // Rollback on error
-        await db.run('ROLLBACK');
-        console.error('Error deleting expense:', error);
-        showToast.error('Error deleting expense: ' + error.message);
-      } finally {
-        setLoading(false);
-      }
+    } catch (error) {
+      // Rollback on error
+      await db.run('ROLLBACK');
+      console.error('Error deleting expense:', error);
+      showToast.error('Error deleting expense: ' + error.message);
+    } finally {
+      setLoading(false);
+      setExpenseToDelete(null);
     }
   };
 
@@ -320,16 +332,23 @@ const ExpenseTracker = () => {
     });
   };
 
-  const deleteCategory = async (categoryId) => {
-    if (window.confirm('Are you sure you want to delete this category? This will affect existing expenses using this category.')) {
-      try {
-        await db.run('UPDATE expense_categories SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE category_id = ?', [categoryId]);
-        await loadCategories();
-        showToast.success('Category deleted successfully');
-      } catch (error) {
-        console.error('Error deleting category:', error);
-        showToast.error('Error deleting category: ' + error.message);
-      }
+  const handleDeleteCategoryClick = (categoryId) => {
+    setCategoryToDelete(categoryId);
+    setShowDeleteCategoryConfirm(true);
+  };
+
+  const confirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    
+    try {
+      await db.run('UPDATE expense_categories SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE category_id = ?', [categoryToDelete]);
+      await loadCategories();
+      showToast.success('Category deleted successfully');
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      showToast.error('Error deleting category: ' + error.message);
+    } finally {
+      setCategoryToDelete(null);
     }
   };
 
@@ -519,7 +538,7 @@ const ExpenseTracker = () => {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => deleteCategory(category.category_id)}
+                          onClick={() => handleDeleteCategoryClick(category.category_id)}
                           className="p-2 rounded-md bg-red-500 text-white hover:bg-red-600 transition-colors"
                           title="Delete Category"
                         >
@@ -885,7 +904,7 @@ const ExpenseTracker = () => {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => deleteExpense(expense)}
+                          onClick={() => handleDeleteExpenseClick(expense)}
                           className="p-2 rounded-md transition-colors"
                           style={{backgroundColor: '#ef4444', color: 'white'}}
                           onMouseEnter={(e) => e.target.style.backgroundColor = '#dc2626'}
@@ -927,6 +946,37 @@ const ExpenseTracker = () => {
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        isOpen={showDeleteExpenseConfirm}
+        onClose={() => setShowDeleteExpenseConfirm(false)}
+        onConfirm={confirmDeleteExpense}
+        title="Delete Expense"
+        message="Are you sure you want to delete this expense?"
+        confirmText="Delete Expense"
+        cancelText="Cancel"
+        variant="danger"
+        details={[
+          'Expense will be marked as deleted',
+          'Amount will be restored to account balance',
+          'This action cannot be undone'
+        ]}
+      />
+      
+      <ConfirmDialog
+        isOpen={showDeleteCategoryConfirm}
+        onClose={() => setShowDeleteCategoryConfirm(false)}
+        onConfirm={confirmDeleteCategory}
+        title="Delete Category"
+        message="Are you sure you want to delete this category?"
+        confirmText="Delete Category"
+        cancelText="Cancel"
+        variant="warning"
+        details={[
+          'Category will be marked as deleted',
+          'Existing expenses using this category will be affected',
+          'This action cannot be undone'
+        ]}
+      />
     </div>
   );
 };

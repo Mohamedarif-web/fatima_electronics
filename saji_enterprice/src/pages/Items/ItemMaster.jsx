@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 import db from '../../utils/database';
 import { addTestItems, forceAddTestItems } from '../../utils/testData';
 import showToast from '../../utils/toast';
+import ConfirmDialog from '../../components/ui/confirm-dialog';
 
 const ItemMaster = () => {
   const [searchParams] = useSearchParams();
@@ -19,6 +20,11 @@ const ItemMaster = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  
+  // Delete confirmation states
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [showTestItemsConfirm, setShowTestItemsConfirm] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -26,8 +32,10 @@ const ItemMaster = () => {
     item_code: '',
     hsn_code: '',
     unit: 'PCS',
-    sale_price: '',
-    sale_price_type: 'without_tax',
+    dealer_price: '',
+    dealer_price_type: 'without_tax',
+    customer_price: '',
+    customer_price_type: 'without_tax',
     purchase_price: '',
     purchase_price_type: 'without_tax',
     gst_rate: '',
@@ -98,7 +106,10 @@ const ItemMaster = () => {
     try {
       const itemData = {
         ...formData,
-        sale_price: parseFloat(formData.sale_price) || 0,
+        dealer_price: parseFloat(formData.dealer_price) || 0,
+        dealer_price_type: formData.dealer_price_type,
+        customer_price: parseFloat(formData.customer_price) || 0,
+        customer_price_type: formData.customer_price_type,
         purchase_price: parseFloat(formData.purchase_price) || 0,
         gst_rate: parseFloat(formData.gst_rate) || 0,
         opening_stock: parseFloat(formData.opening_stock) || 0,
@@ -185,8 +196,10 @@ const ItemMaster = () => {
       item_code: item.item_code || '',
       hsn_code: item.hsn_code || '',
       unit: item.unit || 'PCS',
-      sale_price: item.sale_price || '',
-      sale_price_type: item.sale_price_type || 'without_tax',
+      dealer_price: item.dealer_price || '',
+      dealer_price_type: item.dealer_price_type || 'without_tax',
+      customer_price: item.customer_price || '',
+      customer_price_type: item.customer_price_type || 'without_tax',
       purchase_price: item.purchase_price || '',
       purchase_price_type: item.purchase_price_type || 'without_tax',
       gst_rate: item.gst_rate || '',
@@ -197,16 +210,23 @@ const ItemMaster = () => {
     setShowForm(true);
   };
 
-  const handleDelete = async (itemId) => {
-    if (window.confirm('Are you sure you want to delete this item?')) {
-      try {
-        await db.deleteItem(itemId);
-        await loadItems();
-        showToast.success('Item deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting item:', error);
-        showToast.error('Error deleting item: ' + error.message);
-      }
+  const handleDeleteClick = (itemId) => {
+    setItemToDelete(itemId);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+    
+    try {
+      await db.deleteItem(itemToDelete);
+      await loadItems();
+      showToast.success('Item deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      showToast.error('Error deleting item: ' + error.message);
+    } finally {
+      setItemToDelete(null);
     }
   };
 
@@ -286,8 +306,10 @@ const ItemMaster = () => {
       item_code: '',
       hsn_code: '',
       unit: 'PCS',
-      sale_price: '',
-      sale_price_type: 'without_tax',
+      dealer_price: '',
+      dealer_price_type: 'without_tax',
+      customer_price: '',
+      customer_price_type: 'without_tax',
       purchase_price: '',
       purchase_price_type: 'without_tax',
       gst_rate: '',
@@ -299,20 +321,22 @@ const ItemMaster = () => {
     setShowForm(false);
   };
 
-  const handleAddTestItems = async () => {
-    if (confirm('Add 10 test items to the database? This will add sample electronics items.')) {
-      setLoading(true);
-      try {
-        const added = await forceAddTestItems();
-        if (added) {
-          showToast.success('Successfully added 10 test items!');
-          loadItems(); // Refresh the items list
-        }
-      } catch (error) {
-        showToast.error('Error adding test items: ' + error.message);
-      } finally {
-        setLoading(false);
+  const handleAddTestItems = () => {
+    setShowTestItemsConfirm(true);
+  };
+
+  const confirmAddTestItems = async () => {
+    setLoading(true);
+    try {
+      const added = await forceAddTestItems();
+      if (added) {
+        showToast.success('Successfully added 10 test items!');
+        loadItems(); // Refresh the items list
       }
+    } catch (error) {
+      showToast.error('Error adding test items: ' + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -378,8 +402,10 @@ const ItemMaster = () => {
           product_name: productName,
           item_code: itemCode,
           unit: 'PCS',
-          sale_price: 0,
-          sale_price_type: 'without_tax',
+          dealer_price: 0,
+          dealer_price_type: 'without_tax',
+          customer_price: 0,
+          customer_price_type: 'without_tax',
           purchase_price: 0,
           purchase_price_type: 'without_tax',
           gst_rate: 0,
@@ -597,14 +623,14 @@ const ItemMaster = () => {
 
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700 uppercase tracking-wide">
-                      Sale Price
+                      Dealer Price
                     </label>
                     <div className="relative">
                       <span className="absolute left-4 top-3 text-gray-500 font-bold">₹</span>
                       <input
                         type="number"
-                        name="sale_price"
-                        value={formData.sale_price}
+                        name="dealer_price"
+                        value={formData.dealer_price}
                         onChange={handleInputChange}
                         className="w-full pl-8 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-fatima-green focus:ring-4 focus:ring-blue-50 transition-all duration-200 font-medium"
                         placeholder="0.00"
@@ -616,11 +642,45 @@ const ItemMaster = () => {
 
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700 uppercase tracking-wide">
-                      Sale Price Type
+                      Dealer Price Type
                     </label>
                     <select
-                      name="sale_price_type"
-                      value={formData.sale_price_type}
+                      name="dealer_price_type"
+                      value={formData.dealer_price_type}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-fatima-green focus:ring-4 focus:ring-blue-50 transition-all duration-200 font-medium bg-white"
+                    >
+                      <option value="without_tax">Without Tax</option>
+                      <option value="with_tax">With Tax (Inclusive)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-700 uppercase tracking-wide">
+                      Customer Price
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-3 text-gray-500 font-bold">₹</span>
+                      <input
+                        type="number"
+                        name="customer_price"
+                        value={formData.customer_price}
+                        onChange={handleInputChange}
+                        className="w-full pl-8 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-fatima-green focus:ring-4 focus:ring-blue-50 transition-all duration-200 font-medium"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-700 uppercase tracking-wide">
+                      Customer Price Type
+                    </label>
+                    <select
+                      name="customer_price_type"
+                      value={formData.customer_price_type}
                       onChange={handleInputChange}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-fatima-green focus:ring-4 focus:ring-blue-50 transition-all duration-200 font-medium bg-white"
                     >
@@ -778,8 +838,9 @@ const ItemMaster = () => {
           {loading ? (
             <div className="text-center py-8">Loading items...</div>
           ) : (
-            <Table>
-              <TableHeader>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                 <TableRow>
                   <TableHead>S.No</TableHead>
                   <TableHead>Product Name</TableHead>
@@ -787,7 +848,8 @@ const ItemMaster = () => {
                   <TableHead>HSN Code</TableHead>
                   <TableHead>Unit</TableHead>
                   <TableHead>GST Rate (%)</TableHead>
-                  <TableHead>Sale Price</TableHead>
+                  <TableHead>Dealer Price</TableHead>
+                  <TableHead>Customer Price</TableHead>
                   <TableHead>Purchase Price</TableHead>
                   <TableHead>Min Stock</TableHead>
                   <TableHead>Current Stock</TableHead>
@@ -807,7 +869,8 @@ const ItemMaster = () => {
                     <TableCell>{item.hsn_code || '-'}</TableCell>
                     <TableCell>{item.unit}</TableCell>
                     <TableCell>{item.gst_rate || 0}%</TableCell>
-                    <TableCell>₹{item.sale_price || 0}</TableCell>
+                    <TableCell>₹{item.dealer_price || 0}</TableCell>
+                    <TableCell>₹{item.customer_price || 0}</TableCell>
                     <TableCell>₹{item.purchase_price || 0}</TableCell>
                     <TableCell>{item.min_stock || 0}</TableCell>
                     <TableCell>
@@ -826,7 +889,7 @@ const ItemMaster = () => {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(item.item_id)}
+                          onClick={() => handleDeleteClick(item.item_id)}
                           className="p-2 rounded-md transition-colors flex items-center justify-center"
                           style={{backgroundColor: '#ef4444', color: 'white'}}
                           onMouseEnter={(e) => e.target.style.backgroundColor = '#dc2626'}
@@ -848,6 +911,7 @@ const ItemMaster = () => {
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
 
           {/* Pagination */}
@@ -932,6 +996,40 @@ const ItemMaster = () => {
           )}
         </CardContent>
       </Card>
+      
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+        title="Delete Item"
+        message="Are you sure you want to delete this item?"
+        confirmText="Delete Item"
+        cancelText="Cancel"
+        variant="danger"
+        details={[
+          'Item will be permanently deleted',
+          'Stock information will be removed',
+          'Transaction history will be preserved'
+        ]}
+      />
+      
+      {/* Add Test Items Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showTestItemsConfirm}
+        onClose={() => setShowTestItemsConfirm(false)}
+        onConfirm={confirmAddTestItems}
+        title="Add Test Items"
+        message="Add 10 test items to the database?"
+        confirmText="Add Test Items"
+        cancelText="Cancel"
+        variant="info"
+        details={[
+          'Will add 10 sample electronics items',
+          'Items will have sample prices and stock',
+          'Useful for testing and demo purposes'
+        ]}
+      />
     </div>
   );
 };

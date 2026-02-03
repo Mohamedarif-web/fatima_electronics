@@ -57,7 +57,7 @@ class DatabaseService {
         return await this.query(`
             SELECT * FROM items 
             ${whereClause}
-            ORDER BY product_name
+            ORDER BY created_at DESC
         `);
     }
 
@@ -76,8 +76,10 @@ class DatabaseService {
             barcode,
             hsn_code,
             unit,
-            sale_price,
-            sale_price_type,
+            dealer_price,
+            dealer_price_type,
+            customer_price,
+            customer_price_type,
             purchase_price,
             purchase_price_type,
             gst_rate,
@@ -95,8 +97,10 @@ class DatabaseService {
                     barcode = ?,
                     hsn_code = ?,
                     unit = ?,
-                    sale_price = ?,
-                    sale_price_type = ?,
+                    dealer_price = ?,
+                    dealer_price_type = ?,
+                    customer_price = ?,
+                    customer_price_type = ?,
                     purchase_price = ?,
                     purchase_price_type = ?,
                     gst_rate = ?,
@@ -106,7 +110,8 @@ class DatabaseService {
                 WHERE item_id = ?
             `, [
                 product_name, item_code, barcode, hsn_code, unit,
-                sale_price, sale_price_type, purchase_price, purchase_price_type,
+                dealer_price, dealer_price_type, customer_price, customer_price_type,
+                purchase_price, purchase_price_type,
                 gst_rate, current_stock, min_stock, item_id
             ]);
         } else {
@@ -114,12 +119,14 @@ class DatabaseService {
             const result = await this.run(`
                 INSERT INTO items (
                     product_name, item_code, barcode, hsn_code, unit,
-                    sale_price, sale_price_type, purchase_price, purchase_price_type,
+                    dealer_price, dealer_price_type, customer_price, customer_price_type,
+                    purchase_price, purchase_price_type,
                     gst_rate, opening_stock, current_stock, min_stock
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `, [
                 product_name, item_code, barcode, hsn_code, unit,
-                sale_price, sale_price_type, purchase_price, purchase_price_type,
+                dealer_price, dealer_price_type, customer_price, customer_price_type,
+                purchase_price, purchase_price_type,
                 gst_rate, opening_stock, opening_stock, min_stock
             ]);
 

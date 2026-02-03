@@ -5,6 +5,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '.
 import { Plus, Search, Save, FileText, Calendar, CreditCard, User, Building2, Wallet, ArrowLeft, CheckCircle, Edit, Trash2, RefreshCw } from 'lucide-react';
 import db from '../../utils/database';
 import showToast from '../../utils/toast';
+import ConfirmDialog from '../../components/ui/confirm-dialog';
 
 const PaymentIn = () => {
   const [customers, setCustomers] = useState([]);
@@ -25,6 +26,8 @@ const PaymentIn = () => {
   // Customer search
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState(null);
   
   // New payment flow states
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -435,11 +438,14 @@ const PaymentIn = () => {
     }
   };
 
-  // Delete payment functionality
-  const deletePayment = async (payment) => {
-    if (!confirm(`Are you sure you want to delete payment ${payment.payment_number}? This will restore invoice balances and update all related records.`)) {
-      return;
-    }
+  const handleDeleteClick = (payment) => {
+    setPaymentToDelete(payment);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!paymentToDelete) return;
+    const payment = paymentToDelete;
 
     try {
       setLoading(true);
@@ -498,6 +504,7 @@ const PaymentIn = () => {
       showToast.error('Error deleting payment: ' + error.message);
     } finally {
       setLoading(false);
+      setPaymentToDelete(null);
     }
   };
 
@@ -1079,7 +1086,7 @@ const PaymentIn = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => deletePayment(payment)}
+                          onClick={() => handleDeleteClick(payment)}
                           className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:border-red-300"
                         >
                           <Trash2 className="h-3 w-3" />
@@ -1100,6 +1107,18 @@ const PaymentIn = () => {
           )}
         </CardContent>
       </Card>
+      
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+        title="Delete Payment"
+        message={`Are you sure you want to delete payment ${paymentToDelete?.payment_number}?`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        details={['Payment will be removed', 'Invoice balances will be restored', 'All related records will be updated']}
+      />
     </div>
   );
 };

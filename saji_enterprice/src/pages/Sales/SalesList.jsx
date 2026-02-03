@@ -26,6 +26,10 @@ const SalesList = () => {
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [returnInvoices, setReturnInvoices] = useState([]);
   const [selectedReturnInvoice, setSelectedReturnInvoice] = useState('');
+  
+  // Delete confirmation modal state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState(null);
 
   useEffect(() => {
     loadInvoices();
@@ -66,7 +70,13 @@ const SalesList = () => {
              WHERE sii.invoice_id = si.invoice_id
              AND (sii.quantity - COALESCE(sii.return_quantity, 0)) > 0
              LIMIT 3), 'No items'
-          ) as products_summary
+          ) as products_summary,
+          COALESCE(
+            (SELECT COUNT(*)
+             FROM sales_invoice_items sii
+             WHERE sii.invoice_id = si.invoice_id
+             AND sii.price_type = 'with_tax'), 0
+          ) as has_inclusive_tax
         FROM sales_invoices si
         LEFT JOIN parties p ON si.party_id = p.party_id
         WHERE si.is_deleted = 0
@@ -326,9 +336,19 @@ const SalesList = () => {
     }
   };
 
-  const deleteInvoice = async (invoiceId) => {
-    if (window.confirm('Are you sure you want to delete this invoice? This will reverse all transactions and restore stock. This action cannot be undone.')) {
-      try {
+  const handleDeleteClick = (invoiceId) => {
+    setInvoiceToDelete(invoiceId);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!invoiceToDelete) return;
+    
+    setShowDeleteConfirm(false);
+    const invoiceId = invoiceToDelete;
+    setInvoiceToDelete(null);
+    
+    try {
         console.log('🗑️ Starting invoice deletion process for ID:', invoiceId);
         
         // Get invoice details before deletion
@@ -463,7 +483,11 @@ const SalesList = () => {
         console.error('❌ Error deleting invoice:', error);
         showToast.error('Error deleting invoice: ' + error.message);
       }
-    }
+  };
+  
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setInvoiceToDelete(null);
   };
 
   const filteredInvoices = invoices.filter(invoice => {
@@ -766,7 +790,13 @@ const SalesList = () => {
                       </TableCell>
                       <TableCell>₹{(invoice.subtotal || 0).toLocaleString()}</TableCell>
                       <TableCell>₹{(invoice.discount_amount || 0).toLocaleString()}</TableCell>
-                      <TableCell>₹{(invoice.tax_amount || 0).toLocaleString()}</TableCell>
+                      <TableCell>
+                        {invoice.has_inclusive_tax > 0 ? (
+                          <span className="text-orange-600 text-sm font-medium">Inclusive</span>
+                        ) : (
+                          `₹${(invoice.tax_amount || 0).toLocaleString()}`
+                        )}
+                      </TableCell>
                       <TableCell className="font-semibold">₹{invoice.total_amount.toLocaleString()}</TableCell>
                       <TableCell className="text-center w-40 whitespace-nowrap">
                         {invoice.total_returns > 0 ? (
@@ -835,7 +865,7 @@ const SalesList = () => {
                             <FileText className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => deleteInvoice(invoice.invoice_id)}
+                            onClick={() => handleDeleteClick(invoice.invoice_id)}
                             className="p-2 rounded-md transition-colors flex items-center justify-center"
                             style={{backgroundColor: '#ef4444', color: 'white'}}
                             onMouseEnter={(e) => e.target.style.backgroundColor = '#dc2626'}
@@ -993,6 +1023,54 @@ const SalesList = () => {
                 className="bg-orange-600 hover:bg-orange-700 text-white disabled:bg-gray-300"
               >
                 Process Return
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-full bg-red-100">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Delete Invoice</h3>
+                <p className="text-sm text-gray-500">This action cannot be undone</p>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-700 mb-2">
+                Are you sure you want to delete this invoice?
+              </p>
+              <p className="text-sm text-gray-600 bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                ⚠️ This will:
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>Reverse all transactions</li>
+                  <li>Restore stock quantities</li>
+                  <li>Delete payment records</li>
+                  <li>Remove all related data</li>
+                </ul>
+              </p>
+            </div>
+            
+            <div className="flex gap-3 justify-end">
+              <Button
+                onClick={cancelDelete}
+                variant="outline"
+                className="border-gray-300 text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmDelete}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Delete Invoice
               </Button>
             </div>
           </div>

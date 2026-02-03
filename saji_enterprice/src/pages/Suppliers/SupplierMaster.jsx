@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import db from '../../utils/database';
 import showToast from '../../utils/toast';
+import ConfirmDialog from '../../components/ui/confirm-dialog';
 
 const SupplierMaster = () => {
   console.log('🎯 SupplierMaster component is rendering!');
@@ -15,6 +16,8 @@ const SupplierMaster = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [supplierToDelete, setSupplierToDelete] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -143,15 +146,18 @@ const SupplierMaster = () => {
     setShowForm(true);
   };
 
-  const deleteSupplier = async (supplier) => {
-    if (!confirm(`Are you sure you want to delete supplier "${supplier.name}"?`)) {
-      return;
-    }
+  const handleDeleteClick = (supplier) => {
+    setSupplierToDelete(supplier);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!supplierToDelete) return;
 
     try {
       setLoading(true);
-      await db.run('UPDATE suppliers SET is_deleted = 1 WHERE supplier_id = ?', [supplier.supplier_id]);
-      console.log('🗑️ Deleted supplier:', supplier.name);
+      await db.run('UPDATE suppliers SET is_deleted = 1 WHERE supplier_id = ?', [supplierToDelete.supplier_id]);
+      console.log('🗑️ Deleted supplier:', supplierToDelete.name);
       await loadSuppliers();
       showToast.success('Supplier deleted successfully!');
     } catch (error) {
@@ -159,6 +165,7 @@ const SupplierMaster = () => {
       showToast.error('Error deleting supplier: ' + error.message);
     } finally {
       setLoading(false);
+      setSupplierToDelete(null);
     }
   };
 
@@ -380,7 +387,7 @@ const SupplierMaster = () => {
                         <Edit className="h-3 w-3" />
                       </Button>
                       <button
-                        onClick={() => deleteSupplier(supplier)}
+                        onClick={() => handleDeleteClick(supplier)}
                         className="h-8 w-8 p-0 rounded-md transition-colors flex items-center justify-center"
                         style={{backgroundColor: '#ef4444', color: 'white'}}
                         onMouseEnter={(e) => e.target.style.backgroundColor = '#dc2626'}
@@ -422,6 +429,22 @@ const SupplierMaster = () => {
           )}
         </CardContent>
       </Card>
+      
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+        title="Delete Supplier"
+        message={`Are you sure you want to delete supplier "${supplierToDelete?.name}"?`}
+        confirmText="Delete Supplier"
+        cancelText="Cancel"
+        variant="danger"
+        details={[
+          'Supplier will be marked as deleted',
+          'Purchase history will be preserved',
+          'This action cannot be undone'
+        ]}
+      />
     </div>
   );
 };

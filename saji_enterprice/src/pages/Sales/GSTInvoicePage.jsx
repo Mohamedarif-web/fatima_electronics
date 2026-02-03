@@ -55,6 +55,7 @@ const GSTInvoicePage = () => {
           i.product_name,
           i.hsn_code,
           i.gst_rate,
+          COALESCE(sii.price_type, 'without_tax') as price_type,
           COALESCE(sii.return_quantity, 0) as return_quantity
         FROM sales_invoice_items sii
         LEFT JOIN items i ON sii.item_id = i.item_id
@@ -163,6 +164,7 @@ const GSTInvoicePage = () => {
             quantity: quantity,
             unit: 'Nos',
             pricePerUnit: rate,
+            price_type: item.price_type || 'without_tax', // Add price_type for calculation
             discountPercent: discountPercent,
             discountAmount: actualDiscountAmount,
             taxableValue: taxableValue,

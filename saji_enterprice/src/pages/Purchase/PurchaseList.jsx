@@ -6,12 +6,15 @@ import { Plus, Search, Eye, Trash2, Calendar, Edit } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import db from '../../utils/database';
 import showToast from '../../utils/toast';
+import ConfirmDialog from '../../components/ui/confirm-dialog';
 
 const PurchaseList = () => {
   const navigate = useNavigate();
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [purchaseToDelete, setPurchaseToDelete] = useState(null);
   const [dateFilter, setDateFilter] = useState({
     from: '',
     to: ''
@@ -204,9 +207,16 @@ const PurchaseList = () => {
     newWindow.document.close();
   };
 
-  const deletePurchase = async (purchaseId) => {
-    if (window.confirm('Are you sure you want to delete this purchase bill? This action cannot be undone.')) {
-      try {
+  const handleDeleteClick = (purchaseId) => {
+    setPurchaseToDelete(purchaseId);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!purchaseToDelete) return;
+    const purchaseId = purchaseToDelete;
+    
+    try {
         // First get the purchase details before deleting
         const purchase = await db.get('SELECT * FROM purchase_invoices WHERE purchase_id = ?', [purchaseId]);
         const purchaseItems = await db.query('SELECT * FROM purchase_invoice_items WHERE purchase_id = ?', [purchaseId]);
@@ -280,8 +290,9 @@ const PurchaseList = () => {
       } catch (error) {
         console.error('Error deleting purchase:', error);
         showToast.error('Error deleting purchase bill: ' + error.message);
+      } finally {
+        setPurchaseToDelete(null);
       }
-    }
   };
 
   const filteredPurchases = purchases.filter(purchase =>
@@ -500,7 +511,7 @@ const PurchaseList = () => {
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => deletePurchase(purchase.purchase_id)}
+                            onClick={() => handleDeleteClick(purchase.purchase_id)}
                             className="p-2 rounded-md transition-colors flex items-center justify-center"
                             style={{backgroundColor: '#ef4444', color: 'white'}}
                             onMouseEnter={(e) => e.target.style.backgroundColor = '#dc2626'}
@@ -526,6 +537,17 @@ const PurchaseList = () => {
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+        title="Delete Purchase Bill"
+        message="Are you sure you want to delete this purchase bill?"
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        details={['Stock quantities will be reversed', 'Supplier balance will be updated', 'This action cannot be undone']}
+      />
     </div>
   );
 };

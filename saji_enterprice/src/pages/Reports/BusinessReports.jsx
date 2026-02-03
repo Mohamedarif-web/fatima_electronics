@@ -613,7 +613,7 @@ const BusinessReports = () => {
       case 'all-parties':
         return ['S.No', 'Party Name', 'Phone', 'Current Balance', 'Lifetime Sales', 'Total Invoices'];
       case 'stock-summary':
-        return ['S.No', 'Item Name', 'Stock', 'Unit', 'Purchase Price', 'Sale Price', 'Stock Value', 'Margin %'];
+        return ['S.No', 'Item Name', 'Stock', 'Unit', 'Purchase Price', 'Dealer Price', 'Customer Price', 'Stock Value'];
       case 'item-profit-loss':
         return ['S.No', 'Item Name', 'Stock', 'Cost Price', 'Sale Price', 'Profit/Unit', 'Margin %', 'Potential Profit', 'Status'];
       case 'expense-report':
@@ -715,9 +715,9 @@ const BusinessReports = () => {
             row.current_stock,
             row.unit,
             `Rs ${formatNumber(row.purchase_rate)}`,
-            `Rs ${formatNumber(row.sale_rate)}`,
-            `Rs ${formatNumber(row.stock_value)}`,
-            `${row.margin_percentage?.toFixed(1) || '0'}%`
+            `Rs ${formatNumber(row.dealer_price)}`,
+            `Rs ${formatNumber(row.customer_price)}`,
+            `Rs ${formatNumber(row.stock_value)}`
           ];
         case 'item-profit-loss':
           return [
@@ -1105,12 +1105,12 @@ const BusinessReports = () => {
           i.current_stock,
           i.unit,
           i.purchase_price,
-          i.sale_price,
+          i.customer_price as sale_price,
           (i.current_stock * i.purchase_price) as stock_value_cost,
-          (i.current_stock * i.sale_price) as stock_value_retail,
-          (i.sale_price - i.purchase_price) as profit_per_unit,
-          ((i.sale_price - i.purchase_price) / i.sale_price * 100) as profit_margin_percent,
-          (i.current_stock * (i.sale_price - i.purchase_price)) as potential_profit,
+          (i.current_stock * i.customer_price) as stock_value_retail,
+          (i.customer_price - i.purchase_price) as profit_per_unit,
+          ((i.customer_price - i.purchase_price) / i.customer_price * 100) as profit_margin_percent,
+          (i.current_stock * (i.customer_price - i.purchase_price)) as potential_profit,
           i.opening_stock,
           i.min_stock,
           CASE 
@@ -1250,13 +1250,19 @@ const BusinessReports = () => {
           i.current_stock,
           i.unit,
           i.purchase_price as purchase_rate,
-          i.sale_price as sale_rate,
+          i.dealer_price,
+          i.customer_price,
           (i.current_stock * i.purchase_price) as stock_value,
-          (i.sale_price - i.purchase_price) as margin_per_unit,
+          (i.customer_price - i.purchase_price) as customer_margin_per_unit,
+          (i.dealer_price - i.purchase_price) as dealer_margin_per_unit,
           CASE 
-            WHEN i.sale_price > 0 THEN ((i.sale_price - i.purchase_price) / i.sale_price * 100)
+            WHEN i.customer_price > 0 THEN ((i.customer_price - i.purchase_price) / i.customer_price * 100)
             ELSE 0
-          END as margin_percentage
+          END as customer_margin_percentage,
+          CASE 
+            WHEN i.dealer_price > 0 THEN ((i.dealer_price - i.purchase_price) / i.dealer_price * 100)
+            ELSE 0
+          END as dealer_margin_percentage
         FROM items i
         WHERE i.is_deleted = 0
         ORDER BY stock_value DESC
@@ -2208,9 +2214,9 @@ const BusinessReports = () => {
                                 <TableHead className="text-right font-semibold">Stock</TableHead>
                                 <TableHead className="text-center font-semibold">Unit</TableHead>
                                 <TableHead className="text-right font-semibold">Purchase Price</TableHead>
-                                <TableHead className="text-right font-semibold">Sale Price</TableHead>
+                                <TableHead className="text-right font-semibold">Dealer Price</TableHead>
+                                <TableHead className="text-right font-semibold">Customer Price</TableHead>
                                 <TableHead className="text-right font-semibold">Stock Value</TableHead>
-                                <TableHead className="text-right font-semibold">Margin %</TableHead>
                               </>
                             )}
                             {currentReport.id === 'item-profit-loss' && (
@@ -2451,11 +2457,9 @@ const BusinessReports = () => {
                                   <TableCell className="text-right font-medium">{row.current_stock}</TableCell>
                                   <TableCell className="text-center">{row.unit}</TableCell>
                                   <TableCell className="text-right">₹{row.purchase_rate?.toLocaleString()}</TableCell>
-                                  <TableCell className="text-right">₹{row.sale_rate?.toLocaleString()}</TableCell>
+                                  <TableCell className="text-right">₹{row.dealer_price?.toLocaleString()}</TableCell>
+                                  <TableCell className="text-right">₹{row.customer_price?.toLocaleString()}</TableCell>
                                   <TableCell className="text-right font-semibold text-fatima-green">₹{row.stock_value?.toLocaleString()}</TableCell>
-                                  <TableCell className={`text-right font-semibold ${row.margin_percentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {row.margin_percentage?.toFixed(1)}%
-                                  </TableCell>
                                 </>
                               )}
                               

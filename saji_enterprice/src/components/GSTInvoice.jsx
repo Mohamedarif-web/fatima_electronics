@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Printer, Download, Plus, Trash2 } from 'lucide-react';
 
 const GSTInvoice = ({ invoiceData = null, onSave, onCancel }) => {
@@ -107,6 +107,60 @@ const GSTInvoice = ({ invoiceData = null, onSave, onCancel }) => {
     }
   };
 
+  // Recalculate all items on mount or when invoiceData changes
+  useEffect(() => {
+    if (invoiceData && invoiceData.items) {
+      const recalculatedItems = invoiceData.items.map((item) => {
+        const recalcItem = { ...item };
+        
+        // Calculate based on whether price includes tax or not
+        const gross = recalcItem.pricePerUnit * recalcItem.quantity;
+        const amountAfterDiscount = gross - recalcItem.discountAmount;
+        const priceType = recalcItem.price_type || 'without_tax';
+        
+        // Check if inter-state or intra-state
+        const isInterState = invoiceData.customer?.stateCode !== companyInfo.stateCode;
+        
+        if (priceType === 'with_tax') {
+          // Price includes tax - extract tax from the price
+          recalcItem.amount = amountAfterDiscount;
+          recalcItem.taxableValue = recalcItem.amount / (1 + (recalcItem.gstPercent / 100));
+          const totalTax = recalcItem.amount - recalcItem.taxableValue;
+          
+          if (isInterState) {
+            recalcItem.igstAmount = totalTax;
+            recalcItem.cgstAmount = 0;
+            recalcItem.sgstAmount = 0;
+          } else {
+            recalcItem.cgstAmount = totalTax / 2;
+            recalcItem.sgstAmount = totalTax / 2;
+            recalcItem.igstAmount = 0;
+          }
+        } else {
+          // Price excludes tax - add tax to the price
+          recalcItem.taxableValue = amountAfterDiscount;
+          
+          if (isInterState) {
+            recalcItem.igstAmount = (recalcItem.taxableValue * recalcItem.gstPercent) / 100;
+            recalcItem.cgstAmount = 0;
+            recalcItem.sgstAmount = 0;
+          } else {
+            const gstRate = recalcItem.gstPercent / 2;
+            recalcItem.cgstAmount = (recalcItem.taxableValue * gstRate) / 100;
+            recalcItem.sgstAmount = (recalcItem.taxableValue * gstRate) / 100;
+            recalcItem.igstAmount = 0;
+          }
+          
+          recalcItem.amount = recalcItem.taxableValue + recalcItem.cgstAmount + recalcItem.sgstAmount + recalcItem.igstAmount;
+        }
+        
+        return recalcItem;
+      });
+      
+      setInvoice(prev => ({ ...prev, items: recalculatedItems }));
+    }
+  }, [invoiceData]);
+
   // Calculate item values
   const calculateItem = (index, field, value) => {
     const items = [...invoice.items];
@@ -125,29 +179,53 @@ const GSTInvoice = ({ invoiceData = null, onSave, onCancel }) => {
       item.discountPercent = gross > 0 ? (item.discountAmount * 100) / gross : 0;
     }
     
-    // Calculate taxable value
+    // Calculate based on whether price includes tax or not
     const gross = item.pricePerUnit * item.quantity;
-    item.taxableValue = gross - item.discountAmount;
+    const amountAfterDiscount = gross - item.discountAmount;
+    const priceType = item.price_type || 'without_tax';
     
     // Check if inter-state or intra-state
     const isInterState = invoice.customer.stateCode !== companyInfo.stateCode;
     
-    if (isInterState) {
-      // IGST
-      item.igstAmount = (item.taxableValue * item.gstPercent) / 100;
-      item.cgstAmount = 0;
-      item.sgstAmount = 0;
+    if (priceType === 'with_tax') {
+      // Price includes tax - extract tax from the price
+      item.amount = amountAfterDiscount; // Total amount customer pays
+      item.taxableValue = item.amount / (1 + (item.gstPercent / 100));
+      const totalTax = item.amount - item.taxableValue;
+      
+      if (isInterState) {
+        // IGST
+        item.igstAmount = totalTax;
+        item.cgstAmount = 0;
+        item.sgstAmount = 0;
+      } else {
+        // CGST + SGST
+        item.cgstAmount = totalTax / 2;
+        item.sgstAmount = totalTax / 2;
+        item.igstAmount = 0;
+      }
     } else {
-      // CGST + SGST
-      const gstRate = item.gstPercent / 2;
-      item.cgstAmount = (item.taxableValue * gstRate) / 100;
-      item.sgstAmount = (item.taxableValue * gstRate) / 100;
-      item.igstAmount = 0;
+      // Price excludes tax - add tax to the price
+      item.taxableValue = amountAfterDiscount;
+      
+      if (isInterState) {
+        // IGST
+        item.igstAmount = (item.taxableValue * item.gstPercent) / 100;
+        item.cgstAmount = 0;
+        item.sgstAmount = 0;
+      } else {
+        // CGST + SGST
+        const gstRate = item.gstPercent / 2;
+        item.cgstAmount = (item.taxableValue * gstRate) / 100;
+        item.sgstAmount = (item.taxableValue * gstRate) / 100;
+        item.igstAmount = 0;
+      }
+      
+      item.amount = item.taxableValue + item.cgstAmount + item.sgstAmount + item.igstAmount;
     }
     
-    // Final rate and amount
+    // Final rate
     item.finalRate = item.pricePerUnit - (item.discountAmount / item.quantity);
-    item.amount = item.taxableValue + item.cgstAmount + item.sgstAmount + item.igstAmount;
     
     items[index] = item;
     setInvoice(prev => ({ ...prev, items }));
@@ -245,7 +323,7 @@ const GSTInvoice = ({ invoiceData = null, onSave, onCancel }) => {
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     
     if (!printWindow) {
-      alert('Please allow popups to enable printing');
+      showToast.warning('Please allow popups to enable printing');
       return;
     }
 
@@ -485,7 +563,7 @@ const GSTInvoice = ({ invoiceData = null, onSave, onCancel }) => {
 
     } catch (error) {
       console.error('❌ PDF generation failed:', error);
-      alert('PDF generation failed. Please try again or use Print option.\n\nError: ' + error.message);
+      showToast.error('PDF generation failed. Please try again or use Print option. Error: ' + error.message);
       
       // Restore hidden elements even on error
       const noPrintElements = element.querySelectorAll('.no-print');
@@ -636,7 +714,7 @@ const GSTInvoice = ({ invoiceData = null, onSave, onCancel }) => {
                   </td>
                   <td className="border px-2 py-1 text-center text-black">{item.unit}</td>
                   <td className="border px-2 py-1 text-right text-black">₹ {item.pricePerUnit.toFixed(2)}</td>
-                  <td className="border px-2 py-1 text-right font-semibold text-black">₹ {item.amount.toFixed(2)}</td>
+                  <td className="border px-2 py-1 text-right font-semibold text-black">₹ {item.taxableValue.toFixed(2)}</td>
                 </tr>
               ))}
               
@@ -695,8 +773,8 @@ const GSTInvoice = ({ invoiceData = null, onSave, onCancel }) => {
                   </tr>
                 )}
                 <tr className="bg-blue-100">
-                  <td className="px-2 py-2 font-bold text-black">Sales Total:</td>
-                  <td className="px-2 py-2 text-right font-bold text-black">₹{totals.grandTotal.toFixed(2)}</td>
+                  <td className="px-2 py-2 font-bold text-black">Sales Total (with tax):</td>
+                  <td className="px-2 py-2 text-right font-bold text-black">₹{(totals.taxableValue + totals.cgst + totals.sgst + totals.igst).toFixed(2)}</td>
                 </tr>
 
                 {/* Returns Summary (only show if there are returns) - Simplified */}
